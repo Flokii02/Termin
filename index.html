@@ -491,6 +491,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   userProfile = data;
+  if (data?.role === 'admin') {
+    document.getElementById('navAdmin').style.display = 'inline-block';
+  }
 }
 
 // =====================================================
@@ -542,11 +545,6 @@ function showAuth() {
 function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
-
-  // Admin gomb ha admin
-  if (userProfile?.role === 'admin') {
-    document.getElementById('navAdmin').style.display = 'inline-block';
-  }
   loadServices();
   loadSettings();
 }
