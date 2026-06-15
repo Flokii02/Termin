@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zakazivanje termina</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d0d;
+  --surface: #161616;
+  --surface2: #1e1e1e;
+  --border: #2a2a2a;
+  --text: #f0ece4;
+  --muted: #6b6560;
+  --accent: #d4a843;
+  --accent-dim: rgba(212,168,67,0.12);
+  --success: #3d7a52;
+  --error: #7a3d3d;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-weight:300; min-height:100vh; }
+
+/* AUTH SCREEN */
+.auth-screen {
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.auth-box {
+  width:100%; max-width:380px;
+  background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:48px 36px;
+}
+.auth-logo { font-family:'Playfair Display',serif; font-size:28px; color:var(--accent); text-align:center; margin-bottom:4px; }
+.auth-sub { text-align:center; font-size:12px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:36px; }
+.auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:28px; }
+.auth-tab { flex:1; padding:10px; text-align:center; font-size:13px; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .2s; }
+.auth-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.field { margin-bottom:16px; }
+.field label { display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
+.field input {
+  width:100%; padding:12px 14px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:4px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; outline:none; transition:border-color .2s;
+}
+.field input:focus { border-color:var(--accent); }
+.btn { width:100%; padding:13px; border:none; border-radius:4px; font-family:'Inter',sans-serif; font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all .2s; }
+.btn-accent { background:var(--accent); color:#0d0d0d; font-weight:500; }
+.btn-accent:hover { background:#c49a35; }
+.btn-accent:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+.btn-ghost { background:none; border:1px solid var(--border); color:var(--muted); }
+.btn-ghost:hover { border-color:var(--text); color:var(--text); }
+.auth-err { color:#e07070; font-size:12px; text-align:center; margin-top:12px; }
+
+/* APP */
+.app { display:none; min-height:100vh; }
+
+/* NAV */
+nav {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:0 28px; height:56px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100;
+}
+.nav-logo { font-family:'Playfair Display',serif; font-size:20px; color:var(--accent); }
+.nav-right { display:flex; align-items:center; gap:6px; }
+.nav-btn {
+  padding:7px 14px; border-radius:4px; font-size:12px; cursor:pointer;
+  font-family:'Inter',sans-serif; border:none; transition:all .2s;
+}
+.nav-btn.active { background:var(--accent-dim); color:var(--accent); }
+.nav-btn:not(.active) { background:none; color:var(--muted); }
+.nav-btn:hover:not(.active) { color:var(--text); }
+
+/* PAGES */
+.page { display:none; padding:32px 28px; max-width:680px; margin:0 auto; }
+.page.active { display:block; }
+
+/* HERO */
+.hero-section {
+  background: linear-gradient(135deg, var(--surface) 0%, #1a1510 100%);
+  border:1px solid var(--border); border-radius:8px; padding:40px 36px; margin-bottom:28px;
+  position:relative; overflow:hidden;
+}
+.hero-section::after {
+  content:'✂'; position:absolute; right:32px; top:50%; transform:translateY(-50%);
+  font-size:80px; opacity:0.04; pointer-events:none;
+}
+.hero-eyebrow { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--accent); margin-bottom:12px; }
+.hero-title { font-family:'Playfair Display',serif; font-size:38px; font-weight:400; line-height:1.15; margin-bottom:10px; }
+.hero-sub { font-size:13px; color:var(--muted); line-height:1.7; }
+
+/* STEPS */
+.steps { display:flex; align-items:center; margin-bottom:32px; gap:0; }
+.step-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+.step-item.active { color:var(--text); }
+.step-item.done { color:var(--accent); }
+.step-dot { width:24px; height:24px; border-radius:50%; border:1px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; }
+.step-item.done .step-dot { background:var(--accent); border-color:var(--accent); color:#0d0d0d; }
+.step-item.active .step-dot { background:var(--text); border-color:var(--text); color:#0d0d0d; }
+.step-line { flex:1; height:1px; background:var(--border); margin:0 8px; }
+
+/* PANELS */
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* SECTION TITLE */
+.section-head { margin-bottom:20px; }
+.section-head h2 { font-family:'Playfair Display',serif; font-size:24px; font-weight:400; margin-bottom:4px; }
+.section-head p { font-size:13px; color:var(--muted); }
+
+/* SERVICES */
+.service-list { display:grid; gap:10px; margin-bottom:28px; }
+.service-item {
+  background:var(--surface); border:1px solid var(--border); border-radius:6px;
+  padding:16px 18px; cursor:pointer; transition:all .15s;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.service-item:hover { border-color:var(--accent); }
+.service-item.selected { border-color:var(--accent); background:var(--accent-dim); }
+.svc-name { font-size:14px; font-weight:500; margin-bottom:3px; }
+.svc-dur { font-size:12px; color:var(--muted); }
+.svc-price { font-family:'Playfair Display',serif; font-size:18px; color:var(--accent); }
+
+/* CALENDAR */
+.cal-wrap { margin-bottom:24px; }
+.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.cal-title { font-family:'Playfair Display',serif; font-size:20px; }
+.cal-nav-btn {
+  width:32px; height:32px; border-radius:50%; background:none; border:1px solid var(--border);
+  color:var(--text); cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.cal-nav-btn:hover { background:var(--surface2); border-color:var(--text); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.cal-dname { text-align:center; font-size:10px; letter-spacing:1px; color:var(--muted); padding:6px 0; text-transform:uppercase; }
+.cal-day { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:13px; border-radius:4px; }
+.cal-day.avail { cursor:pointer; border:1px solid var(--border); background:var(--surface); transition:all .15s; }
+.cal-day.avail:hover { border-color:var(--accent); color:var(--accent); }
+.cal-day.sel { background:var(--accent) !important; color:#0d0d0d !important; border-color:var(--accent) !important; font-weight:500; }
+.cal-day.past, .cal-day.off { color:var(--border); }
+.cal-day.today.avail { border-color:var(--accent); }
+
+/* SLOTS */
+.slots-label { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+.slots-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:7px; margin-bottom:24px; }
+.slot {
+  padding:9px 4px; text-align:center; font-size:12px;
+  border:1px solid var(--border); border-radius:4px; cursor:pointer;
+  background:var(--surface); transition:all .15s;
+}
+.slot:hover { border-color:var(--accent); }
+.slot.sel-slot { background:var(--accent); border-color:var(--accent); color:#0d0d0d; font-weight:500; }
+.slot.taken { background:var(--bg); color:var(--border); cursor:not-allowed; text-decoration:line-through; }
+
+/* FORM */
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:7px; }
+.form-group input, .form-group textarea {
+  width:100%; padding:12px 14px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:4px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; outline:none; transition:border-color .2s; resize:none;
+}
+.form-group input:focus, .form-group textarea:focus { border-color:var(--accent); }
+
+/* SUMMARY */
+.summary {
+  background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:24px; margin-bottom:20px;
+}
+.summary-title { font-family:'Playfair Display',serif; font-size:18px; color:var(--accent); margin-bottom:16px; }
+.summary-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.summary-row:last-child { border-bottom:none; }
+.summary-row span:first-child { color:var(--muted); }
+
+/* BUTTON ROW */
+.btn-row { display:flex; gap:10px; margin-top:4px; }
+.btn-row .btn { flex:1; }
+
+/* SUCCESS */
+.success-page { text-align:center; padding:60px 20px; }
+.success-icon { font-size:48px; margin-bottom:20px; }
+.success-title { font-family:'Playfair Display',serif; font-size:32px; margin-bottom:10px; }
+.success-sub { font-size:14px; color:var(--muted); line-height:1.7; margin-bottom:32px; }
+
+/* PROFILE PAGE */
+.profile-header { display:flex; align-items:center; gap:16px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:20px; margin-bottom:24px; }
+.profile-avatar { width:48px; height:48px; border-radius:50%; background:var(--accent-dim); border:1px solid var(--accent); display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:20px; color:var(--accent); }
+.profile-name { font-size:16px; font-weight:500; }
+.profile-email { font-size:12px; color:var(--muted); }
+
+.booking-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px 18px;
+  margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;
+}
+.booking-card.past { opacity:0.5; }
+.bc-left .bc-service { font-size:14px; font-weight:500; margin-bottom:4px; }
+.bc-left .bc-date { font-size:12px; color:var(--muted); }
+.bc-right { text-align:right; }
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; }
+.badge-pending { background:rgba(139,106,42,.2); color:#d4a843; }
+.badge-confirmed { background:rgba(61,122,82,.2); color:#5dba7e; }
+.badge-cancelled { background:rgba(122,61,61,.2); color:#e07070; }
+.bc-cancel { background:none; border:1px solid var(--border); color:var(--muted); padding:5px 10px; border-radius:3px; font-size:11px; cursor:pointer; font-family:'Inter',sans-serif; margin-top:6px; transition:all .15s; }
+.bc-cancel:hover { border-color:#e07070; color:#e07070; }
+
+/* LOADING */
+.spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin:40px auto; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* TOAST */
+.toast {
+  position:fixed; bottom:20px; right:20px; padding:12px 18px; border-radius:4px;
+  font-size:13px; color:white; transform:translateY(80px); opacity:0; transition:all .3s; z-index:999;
+}
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.ok { background:var(--success); }
+.toast.err { background:var(--error); }
+
+/* EMPTY */
+.empty { text-align:center; padding:48px 20px; color:var(--muted); font-size:14px; }
+
+@media(max-width:480px) {
+  nav { padding:0 16px; }
+  .page { padding:20px 16px; }
+  .hero-title { font-size:28px; }
+  .slots-grid { grid-template-columns:repeat(4,1fr); }
+  .step-item span { display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">✂ Termin</div>
+    <div class="auth-sub">Zakazivanje termina</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchTab('login')">Prijava</div>
+      <div class="auth-tab" onclick="switchTab('register')">Registracija</div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="email@example.com"></div>
+      <div class="field"><label>Lozinka</label><input type="password" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-accent" onclick="doLogin()">Prijava</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="registerForm" style="display:none">
+      <div class="field"><label>Ime i prezime</label><input type="text" id="regName" placeholder="Kiss Anna"></div>
+      <div class="field"><label>Telefon</label><input type="tel" id="regPhone" placeholder="+381 60 123 4567"></div>
+      <div class="field"><label>Email</label><input type="email" id="regEmail" placeholder="email@example.com"></div>
+      <div class="field"><label>Lozinka</label><input type="password" id="regPw" placeholder="minimum 6 karaktera"></div>
+      <button class="btn btn-accent" onclick="doRegister()">Registracija</button>
+    </div>
+
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="appScreen">
+
+  <nav>
+    <div class="nav-logo">✂ Termin</div>
+    <div class="nav-right">
+      <button class="nav-btn active" id="navBook" onclick="showPage('book')">Zakazivanje</button>
+      <button class="nav-btn" id="navProfile" onclick="showPage('profile')">Moj profil</button>
+      <button class="nav-btn" id="navAdmin" onclick="showPage('admin')" style="display:none">Admin</button>
+      <button class="nav-btn" onclick="doLogout()" style="color:var(--muted)">Odjava</button>
+    </div>
+  </nav>
+
+  <!-- BOOKING PAGE -->
+  <div class="page active" id="pageBook">
+    <div class="hero-section">
+      <div class="hero-eyebrow">Online foglalás · Online rezervacija</div>
+      <div class="hero-title">Zakažite termin<br>za nekoliko minuta</div>
+      <div class="hero-sub">Izaberite uslugu, dan i vreme.</div>
+    </div>
+
+    <div class="steps" id="stepsBar">
+      <div class="step-item active" id="s1"><div class="step-dot">1</div><span>Usluga</span></div>
+      <div class="step-line"></div>
+      <div class="step-item" id="s2"><div class="step-dot">2</div><span>Termin</span></div>
+      <div class="step-line"></div>
+      <div class="step-item" id="s3"><div class="step-dot">3</div><span>Potvrda</span></div>
+    </div>
+
+    <!-- Panel 1: Usluga -->
+    <div class="panel active" id="p1">
+      <div class="section-head"><h2>Izaberi uslugu</h2><p>Izaberi uslugu</p></div>
+      <div class="service-list" id="serviceList"><div class="spinner"></div></div>
+      <button class="btn btn-accent" id="btnSvc" disabled onclick="goStep(2)">Dalje →</button>
+    </div>
+
+    <!-- Panel 2: Naptár + slot -->
+    <div class="panel" id="p2">
+      <div class="section-head"><h2>Izaberi termin</h2><p>Izaberi termin</p></div>
+
+      <div class="cal-wrap">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="prevMonth()">‹</button>
+          <div class="cal-title" id="calTitle"></div>
+          <button class="cal-nav-btn" onclick="nextMonth()">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+
+      <div id="slotSection" style="display:none">
+        <div class="slots-label" id="slotLabel"></div>
+        <div class="slots-grid" id="slotGrid"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(1)">← Nazad</button>
+        <button class="btn btn-accent" id="btnTime" disabled onclick="goStep(3)">Dalje →</button>
+      </div>
+    </div>
+
+    <!-- Panel 3: Összefoglaló -->
+    <div class="panel" id="p3">
+      <div class="section-head"><h2>Potvrda</h2><p>Proveri svoje podatke</p></div>
+      <div class="summary">
+        <div class="summary-title">Zakazivanje részletei</div>
+        <div class="summary-row"><span>Usluga</span><span id="sumSvc">—</span></div>
+        <div class="summary-row"><span>Trajanje</span><span id="sumDur">—</span></div>
+
+        <div class="summary-row"><span>Termin</span><span id="sumDate">—</span></div>
+        <div class="summary-row"><span>Ime</span><span id="sumName">—</span></div>
+        <div class="summary-row"><span>Telefon</span><span id="sumPhone">—</span></div>
+      </div>
+      <div class="form-group">
+        <label>Napomena (opciono)</label>
+        <textarea id="bookNote" rows="2" placeholder="Npr. kraća kosa, poseban zahtev..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(2)">← Nazad</button>
+        <button class="btn btn-accent" onclick="submitBooking()">✓ Zakazivanje</button>
+      </div>
+    </div>
+
+    <!-- Siker -->
+    <div class="panel" id="pSuccess">
+      <div class="success-page">
+        <div class="success-icon">✓</div>
+        <div class="success-title">Zakazivanje sikeres!</div>
+        <div class="success-sub">Rezervacija je uspešno kreirana!<br><span id="successInfo" style="color:var(--accent)"></span></div>
+        <button class="btn btn-ghost" style="max-width:220px;margin:0 auto" onclick="resetBooking()">Nova rezervacija</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE PAGE -->
+  <div class="page" id="pageProfile">
+    <div class="profile-header">
+      <div class="profile-avatar" id="profileAvatar">?</div>
+      <div>
+        <div class="profile-name" id="profileName">—</div>
+        <div class="profile-email" id="profileEmail">—</div>
+      </div>
+    </div>
+    <div class="section-head"><h2>Zakazivanjeaim</h2><p>Prošli i budući termini</p></div>
+    <div id="bookingsList"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ADMIN PAGE -->
+  <div class="page" id="pageAdmin">
+    <div class="section-head"><h2>Admin panel</h2><p>Podešavanja i upravljanje rezervacijama</p></div>
+
+    <!-- Munkaidő -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:24px;margin-bottom:16px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;margin-bottom:16px;color:var(--accent)">Radno vreme</div>
+
+      <div class="form-group">
+        <label>Radni dani</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="workdayBtns">
+          <button class="wd-btn" data-day="1">H</button>
+          <button class="wd-btn" data-day="2">K</button>
+          <button class="wd-btn" data-day="3">Sze</button>
+          <button class="wd-btn" data-day="4">Cs</button>
+          <button class="wd-btn" data-day="5">P</button>
+          <button class="wd-btn" data-day="6">Szo</button>
+          <button class="wd-btn" data-day="0">V</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="form-group"><label>Početak</label><input type="time" id="startTime" value="09:00"></div>
+        <div class="form-group"><label>Kraj</label><input type="time" id="endTime" value="18:00"></div>
+        <div class="form-group">
+          <label>Interval (min)</label>
+          <input type="number" id="slotMin" value="30" min="15" max="120" step="15">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>Početak pauze</label><input type="time" id="breakStart"></div>
+        <div class="form-group"><label>Kraj pauze</label><input type="time" id="breakEnd"></div>
+      </div>
+
+      <button class="btn btn-accent" style="max-width:200px" onclick="saveSettings()">Sačuvaj</button>
+    </div>
+
+    <!-- Uslugaok -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:24px;margin-bottom:16px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;margin-bottom:16px;color:var(--accent)">Uslugaok</div>
+      <div id="adminSvcList" style="margin-bottom:16px"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end">
+        <div class="form-group" style="margin:0"><label>Ime</label><input type="text" id="newSvcName" placeholder="Hajvágás"></div>
+        <div class="form-group" style="margin:0"><label>Perc</label><input type="number" id="newSvcDur" placeholder="45" min="15"></div>
+        <div class="form-group" style="margin:0"><label>Ár (RSD)</label><input type="number" id="newSvcPrice" placeholder="2000"></div>
+        <button class="btn btn-accent" style="padding:12px 16px;width:auto" onclick="addService()">+</button>
+      </div>
+    </div>
+
+    <!-- Sve rezervacije -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:24px;">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;margin-bottom:16px;color:var(--accent)">Zakazivanjeok</div>
+      <div id="adminBookingsList"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<style>
+.wd-btn {
+  padding:8px 12px; border-radius:4px; border:1px solid var(--border);
+  background:none; color:var(--muted); cursor:pointer; font-family:'Inter',sans-serif;
+  font-size:13px; transition:all .15s; min-width:42px;
+}
+.wd-btn.on { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
+.admin-booking-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid var(--border); font-size:13px;
+}
+.admin-booking-row:last-child { border-bottom:none; }
+.admin-svc-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 0; border-bottom:1px solid var(--border); font-size:13px;
+}
+.admin-svc-row:last-child { border-bottom:none; }
+.del-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:4px 10px; border-radius:3px; cursor:pointer; font-size:11px; font-family:'Inter',sans-serif; }
+.del-btn:hover { border-color:#e07070; color:#e07070; }
+.confirm-btn { background:none; border:1px solid var(--border); color:var(--muted); padding:4px 10px; border-radius:3px; cursor:pointer; font-size:11px; font-family:'Inter',sans-serif; margin-right:4px; }
+.confirm-btn:hover { border-color:#5dba7e; color:#5dba7e; }
+</style>
+
+<script>
+// =====================================================
+// SUPABASE KONFIGURÁCIÓ – IDE RAKD A SAJÁTOD!
+// =====================================================
+const SUPA_URL = 'https://tiknsfohvrlbldgkhqlq.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpa25zZm9odnJsYmxkZ2tocWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDMyMDMsImV4cCI6MjA5NjYxOTIwM30.Dr1hviZ1SxdhkOb2vq4UvgrPfAe5z6p1tztwfoU8ZNs';
+
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// =====================================================
+// STATE
+// =====================================================
+let currentUser = null;
+let userProfile = null;
+let settings = null;
+let state = {
+  service: null,
+  date: null,
+  slot: null,
+  takenSlots: [],
+  year: new Date().getFullYear(),
+  month: new Date().getMonth()
+};
+
+const HU_MONTHS = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+const HU_DAYS = ['H','K','Sze','Cs','P','Szo','V'];
+
+// =====================================================
+// INIT
+// =====================================================
+// Session ellenőrzés oldal betöltésekor
+window.addEventListener('load', async () => {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+      currentUser = data.session.user;
+      await loadProfile();
+      showApp();
+    }
+  } catch(e) {
+    console.error('Session hiba:', e);
+  }
+});
+
+async function loadProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  userProfile = data;
+  if (data?.role === 'admin') {
+    document.getElementById('navAdmin').style.display = 'inline-block';
+  }
+}
+
+// =====================================================
+// AUTH
+// =====================================================
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('authErr').textContent = '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  document.getElementById('authErr').textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    document.getElementById('authErr').textContent = 'Greška: ' + error.message;
+    return;
+  }
+  currentUser = data.user;
+  await loadProfile();
+  showApp();
+}
+
+async function doRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pw = document.getElementById('regPw').value;
+
+  if (!name || !phone || !email || pw.length < 6) {
+    document.getElementById('authErr').textContent = 'Popuni sva polja! (min. 6 karaktera lozinka)';
+    return;
+  }
+
+  const btn = document.querySelector('#registerForm .btn');
+  btn.textContent = 'Učitavanje...';
+  btn.disabled = true;
+
+  const { data, error } = await sb.auth.signUp({ email, password: pw });
+  if (error) {
+    document.getElementById('authErr').textContent = error.message;
+    btn.textContent = 'Registracija';
+    btn.disabled = false;
+    return;
+  }
+
+  await sb.from('profiles').insert({ id: data.user.id, name, phone, role: 'customer' });
+  
+  currentUser = data.user;
+  await loadProfile();
+  
+  document.getElementById('authErr').style.color = '#6dba88';
+  document.getElementById('authErr').textContent = 'Registracija uspešna! Dobrodošao/la!';
+  
+  setTimeout(() => {
+    showApp();
+  }, 1500);
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+}
+
+// =====================================================
+// APP
+// =====================================================
+function showAuth() {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  loadServices();
+  loadSettings();
+}
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+  if (page === 'book') {
+    document.getElementById('pageBook').classList.add('active');
+    document.getElementById('navBook').classList.add('active');
+  } else if (page === 'profile') {
+    document.getElementById('pageProfile').classList.add('active');
+    document.getElementById('navProfile').classList.add('active');
+    loadMyBookings();
+    fillProfile();
+  } else if (page === 'admin') {
+    document.getElementById('pageAdmin').classList.add('active');
+    document.getElementById('navAdmin').classList.add('active');
+    loadAdminBookings();
+    loadAdminServices();
+    loadSettingsAdmin();
+  }
+}
+
+// =====================================================
+// SERVICES
+// =====================================================
+async function loadServices() {
+  const { data } = await sb.from('szolgaltatasok').select('*').eq('active', true);
+  const list = document.getElementById('serviceList');
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="empty">Nema dostupnih usluga.</div>';
+    return;
+  }
+  list.innerHTML = data.map(s => `
+    <div class="service-item" onclick="selectService(${JSON.stringify(s).replace(/"/g,'&quot;')}, this)">
+      <div>
+        <div class="svc-name">${s.name}</div>
+        <div class="svc-dur">${s.duration} perc</div>
+      </div>
+      
+    </div>
+  `).join('');
+}
+
+function selectService(svc, el) {
+  document.querySelectorAll('.service-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+  state.service = svc;
+  document.getElementById('btnSvc').disabled = false;
+}
+
+// =====================================================
+// CALENDAR
+// =====================================================
+async function loadSettings() {
+  const { data } = await sb.from('beallitasok').select('*').limit(1).single();
+  settings = data;
+}
+
+function renderCalendar() {
+  const { year: y, month: m } = state;
+  document.getElementById('calTitle').textContent = `${HU_MONTHS[m]} ${y}`;
+  const grid = document.getElementById('calGrid');
+  const wd = settings?.workdays || [1,2,3,4,5,6];
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let html = HU_DAYS.map(d => `<div class="cal-dname">${d}</div>`).join('');
+  const firstDay = new Date(y, m, 1).getDay();
+  const offset = firstDay === 0 ? 6 : firstDay - 1;
+  const days = new Date(y, m+1, 0).getDate();
+
+  for (let i=0; i<offset; i++) html += `<div class="cal-day"></div>`;
+  for (let d=1; d<=days; d++) {
+    const date = new Date(y, m, d);
+    const dow = date.getDay();
+    const dateStr = fmtDate(date);
+    const isPast = date < today;
+    const isWork = wd.includes(dow);
+    const isSel = state.date === dateStr;
+    let cls = 'cal-day';
+    if (isPast || !isWork) cls += ' past';
+    else cls += ' avail';
+    if (isSel) cls += ' sel';
+    if (date.getTime() === today.getTime()) cls += ' today';
+    const click = (!isPast && isWork) ? `onclick="selectDate('${dateStr}')"` : '';
+    html += `<div class="${cls}" ${click}>${d}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+async function selectDate(dateStr) {
+  state.date = dateStr;
+  state.slot = null;
+  document.getElementById('btnTime').disabled = true;
+  renderCalendar();
+
+  // Foglalt időpontok lekérése
+  const { data } = await sb.from('foglalasok')
+    .select('time')
+    .eq('date', dateStr)
+    .neq('status', 'cancelled');
+
+  state.takenSlots = (data || []).map(r => r.time);
+  renderSlots();
+  document.getElementById('slotSection').style.display = 'block';
+  document.getElementById('slotLabel').textContent = `Slobodni termini – ${dateStr}`;
+}
+
+function renderSlots() {
+  const slots = generateSlots();
+  document.getElementById('slotGrid').innerHTML = slots.map(t => {
+    const taken = state.takenSlots.includes(t);
+    const sel = state.slot === t;
+    let cls = 'slot';
+    if (taken) cls += ' taken';
+    if (sel) cls += ' sel-slot';
+    return `<div class="${cls}" ${!taken ? `onclick="selectSlot('${t}')"` : ''}>${t}</div>`;
+  }).join('');
+}
+
+function generateSlots() {
+  const s = settings || {};
+  const [sh, sm] = (s.start_time || '09:00').split(':').map(Number);
+  const [eh, em] = (s.end_time || '18:00').split(':').map(Number);
+  const interval = s.slot_minutes || 30;
+  const dur = state.service?.duration || 30;
+  const breakS = s.break_start ? timeToMin(s.break_start) : null;
+  const breakE = s.break_end ? timeToMin(s.break_end) : null;
+  const endMin = eh * 60 + em;
+  const slots = [];
+
+  for (let min = sh*60+sm; min + dur <= endMin; min += interval) {
+    if (breakS && breakE && min >= breakS && min < breakE) continue;
+    slots.push(minToTime(min));
+  }
+  return slots;
+}
+
+function selectSlot(t) {
+  state.slot = t;
+  renderSlots();
+  document.getElementById('btnTime').disabled = false;
+}
+
+function prevMonth() {
+  if (state.month === 0) { state.month = 11; state.year--; } else state.month--;
+  renderCalendar();
+}
+function nextMonth() {
+  if (state.month === 11) { state.month = 0; state.year++; } else state.month++;
+  renderCalendar();
+}
+
+// =====================================================
+// STEPS
+// =====================================================
+function goStep(n) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`p${n}`).classList.add('active');
+  for (let i=1; i<=3; i++) {
+    const el = document.getElementById(`s${i}`);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    if (i === n) el.classList.add('active');
+  }
+  if (n === 2) { loadSettings().then(() => renderCalendar()); }
+  if (n === 3) fillSummary();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+function fillSummary() {
+  const s = state.service;
+  document.getElementById('sumSvc').textContent = s.name;
+  document.getElementById('sumDur').textContent = `${s.duration} perc`;
+  
+  document.getElementById('sumDate').textContent = `${state.date} ${state.slot}`;
+  document.getElementById('sumName').textContent = userProfile?.name || '—';
+  document.getElementById('sumPhone').textContent = userProfile?.phone || '—';
+}
+
+// =====================================================
+// BOOKING
+// =====================================================
+async function submitBooking() {
+  const { error } = await sb.from('foglalasok').insert({
+    user_id: currentUser.id,
+    szolgaltatas_id: state.service.id,
+    date: state.date,
+    time: state.slot,
+    status: 'pending',
+    note: document.getElementById('bookNote').value.trim()
+  });
+
+  if (error) { showToast('Greška! Pokušaj ponovo.', 'err'); return; }
+
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('pSuccess').classList.add('active');
+  document.getElementById('stepsBar').style.display = 'none';
+  document.getElementById('successInfo').textContent = `${state.date} ${state.slot} – ${state.service.name}`;
+}
+
+function resetBooking() {
+  state = { service:null, date:null, slot:null, takenSlots:[], year:new Date().getFullYear(), month:new Date().getMonth() };
+  document.getElementById('stepsBar').style.display = 'flex';
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('p1').classList.add('active');
+  for (let i=1; i<=3; i++) {
+    document.getElementById(`s${i}`).classList.remove('active','done');
+  }
+  document.getElementById('s1').classList.add('active');
+  document.querySelectorAll('.service-item').forEach(i => i.classList.remove('selected'));
+  document.getElementById('btnSvc').disabled = true;
+  document.getElementById('bookNote').value = '';
+}
+
+// =====================================================
+// PROFILE
+// =====================================================
+function fillProfile() {
+  const name = userProfile?.name || currentUser?.email || '?';
+  document.getElementById('profileName').textContent = name;
+  document.getElementById('profileEmail').textContent = currentUser?.email || '';
+  document.getElementById('profileAvatar').textContent = name.charAt(0).toUpperCase();
+}
+
+async function loadMyBookings() {
+  const list = document.getElementById('bookingsList');
+  list.innerHTML = '<div class="spinner"></div>';
+
+  const { data } = await sb.from('foglalasok')
+    .select('*, szolgaltatasok(name, price)')
+    .eq('user_id', currentUser.id)
+    .order('date', { ascending: false });
+
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="empty">Još nemaš rezervacija.</div>';
+    return;
+  }
+
+  const today = fmtDate(new Date());
+  list.innerHTML = data.map(b => {
+    const isPast = b.date < today;
+    const svcName = b.szolgaltatasok?.name || '—';
+    const price = b.szolgaltatasok?.price || 0;
+    const badgeClass = b.status === 'confirmed' ? 'badge-confirmed' : b.status === 'cancelled' ? 'badge-cancelled' : 'badge-pending';
+    const badgeLabel = b.status === 'confirmed' ? 'Potvrđeno' : b.status === 'cancelled' ? 'Otkazano' : 'Na čekanju';
+
+    return `
+      <div class="booking-card ${isPast ? 'past' : ''}">
+        <div class="bc-left">
+          <div class="bc-service">${svcName} – ${price.toLocaleString()} RSD</div>
+          <div class="bc-date">${b.date} ${b.time}</div>
+        </div>
+        <div class="bc-right">
+          <span class="badge ${badgeClass}">${badgeLabel}</span>
+          ${!isPast && b.status !== 'cancelled' ? `<br><button class="bc-cancel" onclick="cancelBooking('${b.id}')">Otkaži</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function cancelBooking(id) {
+  if (!confirm('Sigurno želiš da otkažeš ovu rezervaciju?')) return;
+  await sb.from('foglalasok').update({ status: 'cancelled' }).eq('id', id);
+  showToast('Zakazivanje lemondva.');
+  loadMyBookings();
+}
+
+// =====================================================
+// ADMIN
+// =====================================================
+async function loadAdminBookings() {
+  const list = document.getElementById('adminBookingsList');
+  list.innerHTML = '<div class="spinner"></div>';
+
+  const { data } = await sb.from('foglalasok')
+    .select('*, profiles(name, phone), szolgaltatasok(name)')
+    .order('date', { ascending: true });
+
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="empty">Nema rezervacija.</div>';
+    return;
+  }
+
+  list.innerHTML = data.map(b => `
+    <div class="admin-booking-row">
+      <div>
+        <strong>${b.profiles?.name || '—'}</strong> · ${b.profiles?.phone || '—'}<br>
+        <span style="color:var(--muted);font-size:12px">${b.date} ${b.time} · ${b.szolgaltatasok?.name || '—'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="badge ${b.status === 'confirmed' ? 'badge-confirmed' : b.status === 'cancelled' ? 'badge-cancelled' : 'badge-pending'}">
+          ${b.status === 'confirmed' ? 'OK' : b.status === 'cancelled' ? 'Otkazano' : 'Na čekanju'}
+        </span>
+        ${b.status !== 'cancelled' ? `<button class="confirm-btn" onclick="adminConfirm('${b.id}')">✓</button>` : ''}
+        ${b.status !== 'cancelled' ? `<button class="del-btn" onclick="adminCancel('${b.id}')">✕</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function adminConfirm(id) {
+  await sb.from('foglalasok').update({ status: 'confirmed' }).eq('id', id);
+  showToast('Potvrđeno!');
+  loadAdminBookings();
+}
+
+async function adminCancel(id) {
+  await sb.from('foglalasok').update({ status: 'cancelled' }).eq('id', id);
+  showToast('Otkazano.');
+  loadAdminBookings();
+}
+
+async function loadAdminServices() {
+  const { data } = await sb.from('szolgaltatasok').select('*');
+  document.getElementById('adminSvcList').innerHTML = (data || []).map(s => `
+    <div class="admin-svc-row">
+      <span>${s.name} · ${s.duration} perc · ${s.price.toLocaleString()} RSD</span>
+      <button class="del-btn" onclick="deleteSvc(${s.id})">Törlés</button>
+    </div>
+  `).join('') || '<div style="color:var(--muted);font-size:13px">Nema usluga.</div>';
+}
+
+async function addService() {
+  const name = document.getElementById('newSvcName').value.trim();
+  const duration = parseInt(document.getElementById('newSvcDur').value);
+  const price = parseInt(document.getElementById('newSvcPrice').value);
+  if (!name || !duration || !price) { showToast('Popuni sva polja!', 'err'); return; }
+  await sb.from('szolgaltatasok').insert({ name, duration, price, active: true });
+  document.getElementById('newSvcName').value = '';
+  document.getElementById('newSvcDur').value = '';
+  document.getElementById('newSvcPrice').value = '';
+  showToast('Usluga hozzáadva!');
+  loadAdminServices();
+  loadServices();
+}
+
+async function deleteSvc(id) {
+  await sb.from('szolgaltatasok').update({ active: false }).eq('id', id);
+  showToast('Obrisano.');
+  loadAdminServices();
+  loadServices();
+}
+
+async function loadSettingsAdmin() {
+  const { data } = await sb.from('beallitasok').select('*').limit(1).single();
+  if (!data) return;
+  settings = data;
+  document.getElementById('startTime').value = data.start_time || '09:00';
+  document.getElementById('endTime').value = data.end_time || '18:00';
+  document.getElementById('slotMin').value = data.slot_minutes || 30;
+  document.getElementById('breakStart').value = data.break_start || '';
+  document.getElementById('breakEnd').value = data.break_end || '';
+
+  const wd = data.workdays || [1,2,3,4,5,6];
+  document.querySelectorAll('.wd-btn').forEach(btn => {
+    const day = parseInt(btn.dataset.day);
+    btn.classList.toggle('on', wd.includes(day));
+    btn.onclick = () => { btn.classList.toggle('on'); };
+  });
+}
+
+async function saveSettings() {
+  const workdays = [...document.querySelectorAll('.wd-btn.on')].map(b => parseInt(b.dataset.day));
+  const payload = {
+    workdays,
+    start_time: document.getElementById('startTime').value,
+    end_time: document.getElementById('endTime').value,
+    slot_minutes: parseInt(document.getElementById('slotMin').value),
+    break_start: document.getElementById('breakStart').value || null,
+    break_end: document.getElementById('breakEnd').value || null,
+  };
+  const { data } = await sb.from('beallitasok').select('id').limit(1).single();
+  if (data) {
+    await sb.from('beallitasok').update(payload).eq('id', data.id);
+  } else {
+    await sb.from('beallitasok').insert(payload);
+  }
+  settings = payload;
+  showToast('Podešavanja sačuvana!');
+}
+
+// =====================================================
+// UTILS
+// =====================================================
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function timeToMin(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+function minToTime(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
+
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
