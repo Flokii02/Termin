@@ -385,50 +385,109 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
   </div>
 
   <!-- ADMIN PAGE -->
-  <div class="page" id="pageAdmin">
-    <div class="section-head"><h2>Admin panel</h2><p>Podešavanja i upravljanje rezervacijama</p></div>
+  <div class="page wide" id="pageAdmin">
+    <div class="section-head"><h2>Admin panel</h2><p>Statistika i podešavanja</p></div>
 
-    <!-- Radno vreme - opšte -->
-    <div class="card">
-      <div class="card-title">Opšte podešavanje</div>
-      <div class="grid3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        <div class="form-group"><label>Početak rada</label><input type="time" id="startTime" value="09:00"></div>
-        <div class="form-group"><label>Kraj rada</label><input type="time" id="endTime" value="18:00"></div>
-        <div class="form-group"><label>Interval (min)</label><input type="number" id="slotMin" value="30" min="15" max="120" step="15"></div>
-      </div>
-      <button class="btn btn-accent" style="max-width:200px" onclick="saveSettings()">Sačuvaj</button>
-    </div>
-
-    <!-- Nedeljni raspored -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-        <div class="card-title" style="margin:0">Nedeljni raspored</div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="cal-nav-btn" onclick="prevAdminWeek()">‹</button>
-          <div id="adminWeekLabel" style="font-size:14px;font-weight:500;min-width:160px;text-align:center"></div>
-          <button class="cal-nav-btn" onclick="nextAdminWeek()">›</button>
+    <!-- STATISTIKA -->
+    <div class="card stats">
+      <div class="stats-head">
+        <div class="card-title" style="margin:0">Statistika</div>
+        <div class="stats-ctrl">
+          <div class="seg" role="tablist" aria-label="Period">
+            <button class="seg-btn" id="stMday" onclick="setStatsMode('day')">Dan</button>
+            <button class="seg-btn active" id="stMweek" onclick="setStatsMode('week')">Nedelja</button>
+            <button class="seg-btn" id="stMmonth" onclick="setStatsMode('month')">Mesec</button>
+          </div>
+          <div class="stats-nav">
+            <button class="cal-nav-btn" onclick="shiftStats(-1)" aria-label="Prethodni period">‹</button>
+            <div id="statsLabel" class="stats-label"></div>
+            <button class="cal-nav-btn" onclick="shiftStats(1)" aria-label="Sledeći period">›</button>
+          </div>
         </div>
       </div>
-      <div id="weekScheduleGrid"></div>
-      <button class="btn btn-accent" style="max-width:220px;margin-top:16px" onclick="saveWeekSchedule()">Sačuvaj nedelju</button>
-    </div>
 
-    <!-- Uslugaok -->
-    <div class="card">
-      <div class="card-title">Usluge</div>
-      <div id="adminSvcList" style="margin-bottom:16px"></div>
-      <div class="svc-add" style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;align-items:end">
-        <div class="form-group" style="margin:0"><label>Ime</label><input type="text" id="newSvcName" placeholder="Muško šišanje"></div>
-        <div class="form-group" style="margin:0"><label>Min</label><input type="number" id="newSvcDur" placeholder="30" min="15"></div>
-        <div class="form-group" style="margin:0;display:none"><label>Cena (RSD)</label><input type="number" id="newSvcPrice" placeholder="Cena"></div>
-        <button class="btn btn-accent" style="padding:12px 16px;width:auto" onclick="addService()">+</button>
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-l">Termini</div><div class="kpi-v" id="kpiCount">–</div><div class="kpi-s" id="kpiCountSub">&nbsp;</div></div>
+        <div class="kpi kpi-main"><div class="kpi-l">Prihod</div><div class="kpi-v" id="kpiRev">–</div><div class="kpi-s">završeni potvrđeni termini</div></div>
+        <div class="kpi"><div class="kpi-l">Očekivano</div><div class="kpi-v" id="kpiExp">–</div><div class="kpi-s">predstojeći termini</div></div>
+        <div class="kpi"><div class="kpi-l">Otkazano</div><div class="kpi-v" id="kpiCancel">–</div><div class="kpi-s" id="kpiCancelSub">&nbsp;</div></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-block">
+          <div class="stat-block-head">
+            <div class="stat-title" id="chartTitle">Termini po danima</div>
+            <div class="seg seg-sm">
+              <button class="seg-btn active" id="stCcount" onclick="setStatsMetric('count')">Termini</button>
+              <button class="seg-btn" id="stCrev" onclick="setStatsMetric('rev')">Prihod</button>
+            </div>
+          </div>
+          <div id="statsChart" class="chart"></div>
+          <div id="chartReadout" class="chart-readout">Dodirnite stubić za detalje.</div>
+        </div>
+        <div class="stats-side">
+          <div class="stat-block">
+            <div class="stat-title">Najtraženiji sati</div>
+            <div id="statsHours" class="hbars"></div>
+          </div>
+          <div class="stat-block">
+            <div class="stat-title">Najčešći klijenti</div>
+            <div id="statsClients" class="clients"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Sve rezervacije -->
-    <div class="card">
-      <div class="card-title">Rezervacije</div>
-      <div id="adminBookingsList"><div class="spinner"></div></div>
+    <!-- PODEŠAVANJA -->
+    <div class="admin-cols">
+      <div class="admin-col">
+        <div class="card">
+          <div class="card-title">Opšte podešavanje</div>
+          <div class="grid3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <div class="form-group"><label>Početak rada</label><input type="time" id="startTime" value="09:00"></div>
+            <div class="form-group"><label>Kraj rada</label><input type="time" id="endTime" value="18:00"></div>
+            <div class="form-group"><label>Interval (min)</label><input type="number" id="slotMin" value="30" min="15" max="120" step="15"></div>
+          </div>
+          <button class="btn btn-accent" style="max-width:200px" onclick="saveSettings()">Sačuvaj</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Usluge i cene</div>
+          <div id="adminSvcList" style="margin-bottom:16px"></div>
+          <div class="svc-add" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end">
+            <div class="form-group" style="margin:0"><label>Ime</label><input type="text" id="newSvcName" placeholder="Muško šišanje"></div>
+            <div class="form-group" style="margin:0"><label>Min</label><input type="number" id="newSvcDur" placeholder="30" min="15"></div>
+            <div class="form-group" style="margin:0"><label>Cena (RSD)</label><input type="number" id="newSvcPrice" placeholder="800" min="0"></div>
+            <button class="btn btn-accent" style="padding:12px 16px;width:auto" onclick="addService()" aria-label="Dodaj uslugu">+</button>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:10px">Cene vide samo administratori i koriste se za statistiku.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Neradni dani</div>
+          <div id="blockedDatesList" style="margin-bottom:14px"></div>
+          <div class="svc-add" style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:10px;align-items:end">
+            <div class="form-group" style="margin:0"><label>Datum</label><input type="date" id="blockDate"></div>
+            <div class="form-group" style="margin:0"><label>Razlog</label><input type="text" id="blockReason" placeholder="Odmor, praznik..."></div>
+            <button class="btn btn-accent" style="padding:12px 16px;width:auto" onclick="addBlockedDate()" aria-label="Dodaj neradni dan">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-col">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+            <div class="card-title" style="margin:0">Nedeljni raspored</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <button class="cal-nav-btn" onclick="prevAdminWeek()" aria-label="Prethodna nedelja">‹</button>
+              <div id="adminWeekLabel" style="font-size:14px;font-weight:600;min-width:130px;text-align:center"></div>
+              <button class="cal-nav-btn" onclick="nextAdminWeek()" aria-label="Sledeća nedelja">›</button>
+            </div>
+          </div>
+          <div id="weekScheduleGrid"></div>
+          <button class="btn btn-accent" style="max-width:220px;margin-top:16px" onclick="saveWeekSchedule()">Sačuvaj nedelju</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -503,6 +562,93 @@ nav.open .nav-toggle span:nth-child(3) { transform:translateY(-7.5px) rotate(-45
   nav.open .nav-right { display:flex; animation:rise .2s ease both; }
   .nav-btn { display:block; width:100%; text-align:left; padding:14px 16px; font-size:16px; border-radius:14px; }
   .nav-btn:not(.active) { color:var(--text); }
+}
+
+/* ===== ADMIN / STATISTIKA ===== */
+.page.wide { max-width:1080px; }
+.admin-cols { display:grid; grid-template-columns:1fr; gap:16px; align-items:start; }
+.admin-col { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.admin-col .card, .stats.card { margin:0; }
+.stats.card { margin-bottom:16px; padding:24px; }
+.stats-head { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:18px; }
+.stats-ctrl { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.stats-nav { display:flex; align-items:center; gap:8px; }
+.stats-label { font-weight:700; font-size:14px; min-width:128px; text-align:center; font-variant-numeric:tabular-nums; }
+.seg { display:inline-flex; background:rgba(255,255,255,.5); border:1px solid rgba(255,255,255,.85); border-radius:999px; padding:3px; }
+.seg-btn { border:none; background:none; padding:8px 14px; border-radius:999px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; }
+.seg-btn.active { background:var(--text); color:#fff; }
+.seg-sm .seg-btn { padding:5px 11px; font-size:12px; }
+.kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+.kpi { background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.85); border-radius:16px; padding:14px 16px; min-width:0; }
+.kpi-l { font-size:12px; font-weight:600; color:var(--muted); }
+.kpi-v { font-family:var(--display); font-size:26px; font-weight:800; letter-spacing:-.02em; line-height:1.15; margin:4px 0 2px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.kpi-s { font-size:12px; color:var(--muted); }
+.kpi-main { background:var(--accent); border-color:var(--accent); box-shadow:0 10px 24px rgba(43,68,255,.28); }
+.kpi-main .kpi-l, .kpi-main .kpi-s { color:rgba(255,255,255,.82); }
+.kpi-main .kpi-v { color:#fff; }
+.stats-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+.stats-side { display:grid; grid-template-columns:1fr; gap:14px; min-width:0; }
+.stat-block { background:rgba(255,255,255,.45); border:1px solid rgba(255,255,255,.8); border-radius:18px; padding:16px; min-width:0; }
+.stat-block-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.stat-title { font-family:var(--display); font-weight:800; font-size:16px; margin-bottom:10px; }
+.stat-block-head .stat-title { margin:0; }
+.stat-empty { color:var(--muted); font-size:13px; padding:8px 0; }
+.chart { display:grid; grid-template-columns:34px 1fr; gap:6px; height:210px; }
+.chart-y { display:flex; flex-direction:column; justify-content:space-between; align-items:flex-end; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; padding-bottom:22px; line-height:1; }
+.chart-plot { position:relative; display:grid; grid-template-rows:1fr 22px; min-width:0; }
+.chart-grid { position:absolute; left:0; right:0; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none; }
+.chart-grid i { display:block; height:1px; background:var(--line); }
+.chart-bars { position:relative; display:flex; align-items:stretch; gap:6px; min-width:0; }
+.chart-bars.dense { gap:2px; }
+.bar-col { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; background:none; border:none; padding:0; cursor:pointer; position:relative; border-radius:8px; }
+.bar-col .bar { display:block; width:100%; max-width:44px; background:var(--accent); border-radius:8px 8px 3px 3px; min-height:0; transition:height .45s cubic-bezier(.2,.8,.2,1), filter .15s; }
+.bar-col.rev .bar { background:var(--ok); }
+.bar-col.future .bar { opacity:.38; }
+.bar-col:hover .bar, .bar-col.sel .bar { filter:brightness(1.12); }
+.bar-col.sel { background:rgba(43,68,255,.08); }
+.bar-col.today .bar { box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--red); }
+.bar-val { font-size:11px; font-weight:700; margin-bottom:3px; font-variant-numeric:tabular-nums; min-height:13px; }
+.chart-bars.dense .bar-val { display:none; }
+.chart-bars.dense .bar { border-radius:4px 4px 1px 1px; }
+.chart-x { display:flex; gap:6px; font-size:11px; color:var(--muted); }
+.chart-x.dense { gap:2px; }
+.chart-x span { flex:1; text-align:center; align-self:end; min-width:0; overflow:visible; white-space:nowrap; }
+.chart-x span.today { color:var(--red); font-weight:700; }
+.chart-readout { margin-top:10px; font-size:13px; color:var(--muted); min-height:20px; }
+.chart-readout strong { color:var(--text); }
+.hbars { display:flex; flex-direction:column; gap:10px; }
+.hbar { display:grid; grid-template-columns:44px 1fr 24px; align-items:center; gap:8px; font-size:13px; font-variant-numeric:tabular-nums; }
+.hbar-l { font-weight:600; }
+.hbar-t { height:10px; background:rgba(14,18,48,.07); border-radius:999px; overflow:hidden; }
+.hbar-f { display:block; height:100%; background:var(--accent); border-radius:999px; }
+.hbar-v { text-align:right; font-weight:700; }
+.clients { display:flex; flex-direction:column; gap:8px; }
+.client-row { display:flex; align-items:center; gap:10px; font-size:14px; min-width:0; }
+.client-av { width:30px; height:30px; border-radius:50%; background:var(--accent-dim); color:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0; }
+.client-n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+.client-c { font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; }
+.svc-edit { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+.svc-edit input { width:88px; padding:7px 10px; border-radius:10px; border:1.5px solid rgba(255,255,255,.9); background:rgba(255,255,255,.6); font-size:14px; color:var(--text); text-align:right; }
+.admin-svc-row { gap:10px; flex-wrap:wrap; }
+@media (min-width:900px) {
+  .stats-grid { grid-template-columns:1.7fr 1fr; align-items:stretch; }
+  .stats-grid > .stat-block { display:flex; flex-direction:column; }
+  .stats-grid > .stat-block .chart { flex:1; min-height:300px; height:auto; }
+  .admin-cols { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:700px) {
+  .kpis { grid-template-columns:1fr 1fr; }
+  .kpi-v { font-size:22px; }
+  .stats.card { padding:16px; }
+  .stats-label { min-width:0; flex:1; }
+  .stats-nav { flex:1; }
+  .stats-ctrl { width:100%; }
+  .seg { width:100%; } .seg .seg-btn { flex:1; }
+  .seg-sm { width:auto; } .seg-sm .seg-btn { flex:0 0 auto; }
+  .chart { height:190px; }
+  .svc-add { grid-template-columns:1fr 1fr !important; }
+  .svc-add > .form-group:first-child { grid-column:1/-1; }
+  .svc-add > .btn { grid-column:1/-1; width:100% !important; }
 }
 </style>
 
@@ -680,6 +826,7 @@ function showPage(page) {
     document.getElementById('navAdmin').classList.add('active');
     loadAdminServices();
     loadSettingsAdmin();
+    loadStats();
   }
 }
 
@@ -896,6 +1043,7 @@ async function submitBooking() {
     date: state.date,
     time: state.slot,
     status: 'pending',
+    price: state.service.price ?? null,
     note: document.getElementById('bookNote').value.trim()
   });
 
@@ -1139,6 +1287,7 @@ async function rezCancel(id) {
 
 async function loadAdminBookings() {
   const list = document.getElementById('adminBookingsList');
+  if (!list) return;
   list.innerHTML = '<div class="spinner"></div>';
 
   const { data } = await sb.from('foglalasok')
@@ -1192,21 +1341,30 @@ async function adminCancel(id) {
 }
 
 async function loadAdminServices() {
-  const { data } = await sb.from('szolgaltatasok').select('*');
-  document.getElementById('adminSvcList').innerHTML = (data || []).map(s => `
+  const { data } = await sb.from('szolgaltatasok').select('*').eq('active', true).order('id');
+  document.getElementById('adminSvcList').innerHTML = (data || []).map(sv => `
     <div class="admin-svc-row">
-      <span>${s.name} · ${s.duration} min · ${s.price.toLocaleString()} RSD</span>
-      <button class="del-btn" onclick="deleteSvc(${s.id})">Obriši</button>
+      <span><strong>${sv.name}</strong> · ${sv.duration} min</span>
+      <span class="svc-edit">
+        <input type="number" min="0" value="${sv.price ?? 0}" aria-label="Cena" onchange="updateSvcPrice(${sv.id}, this.value)"> RSD
+        <button class="del-btn" onclick="deleteSvc(${sv.id})">Obriši</button>
+      </span>
     </div>
   `).join('') || '<div style="color:var(--muted);font-size:13px">Nema usluga.</div>';
 }
-
+async function updateSvcPrice(id, val) {
+  const price = Math.max(0, parseInt(val) || 0);
+  const { error } = await sb.from('szolgaltatasok').update({ price }).eq('id', id);
+  if (error) { showToast('Greška! Pokušaj ponovo.', 'err'); return; }
+  showToast('Cena sačuvana!');
+  loadServices();
+}
 async function addService() {
   const name = document.getElementById('newSvcName').value.trim();
   const duration = parseInt(document.getElementById('newSvcDur').value);
   if (!name || !duration) { showToast('Popuni sva polja!', 'err'); return; }
-  const price = 0;
-  await sb.from('szolgaltatasok').insert({ name, duration, active: true });
+  const price = Math.max(0, parseInt(document.getElementById('newSvcPrice').value) || 0);
+  await sb.from('szolgaltatasok').insert({ name, duration, price, active: true });
   document.getElementById('newSvcName').value = '';
   document.getElementById('newSvcDur').value = '';
   document.getElementById('newSvcPrice').value = '';
@@ -1336,8 +1494,9 @@ async function loadSettingsAdmin() {
   document.getElementById('startTime').value = data.start_time || '09:00';
   document.getElementById('endTime').value = data.end_time || '18:00';
   document.getElementById('slotMin').value = data.slot_minutes || 30;
-  document.getElementById('breakStart').value = data.break_start || '';
-  document.getElementById('breakEnd').value = data.break_end || '';
+  const bs = document.getElementById('breakStart'), be = document.getElementById('breakEnd');
+  if (bs) bs.value = data.break_start || '';
+  if (be) be.value = data.break_end || '';
 
   const wd = data.workdays || [1,2,3,4,5,6];
   document.querySelectorAll('.wd-btn').forEach(btn => {
@@ -1380,6 +1539,159 @@ function showToast(msg, type='ok') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// =====================================================
+// STATISTIKA
+// =====================================================
+const ST = { mode:'week', offset:0, metric:'count', data:[], buckets:[] };
+const fmtRSD = n => Math.round(n).toLocaleString('de-DE') + ' RSD';
+const pad2 = n => String(n).padStart(2,'0');
+
+function setStatsMode(m) { ST.mode = m; ST.offset = 0; loadStats(); }
+function shiftStats(d) { ST.offset += d; loadStats(); }
+function setStatsMetric(m) { ST.metric = m; renderStats(); }
+
+function statsRange() {
+  const t = new Date(); t.setHours(0,0,0,0);
+  let from, to, label;
+  if (ST.mode === 'day') {
+    from = new Date(t); from.setDate(from.getDate() + ST.offset); to = new Date(from);
+    label = `${HU_DAYS[(from.getDay()+6)%7]}, ${from.getDate()}. ${HU_MONTHS[from.getMonth()].slice(0,3).toLowerCase()}`;
+  } else if (ST.mode === 'week') {
+    from = new Date(t); from.setDate(from.getDate() - ((from.getDay()+6)%7) + ST.offset*7);
+    to = new Date(from); to.setDate(to.getDate() + 6);
+    label = `${from.getDate()}.${from.getMonth()===to.getMonth() ? '' : ' ' + HU_MONTHS[from.getMonth()].slice(0,3).toLowerCase()} – ${to.getDate()}. ${HU_MONTHS[to.getMonth()].slice(0,3).toLowerCase()}`;
+  } else {
+    from = new Date(t.getFullYear(), t.getMonth() + ST.offset, 1);
+    to = new Date(from.getFullYear(), from.getMonth() + 1, 0);
+    label = `${HU_MONTHS[from.getMonth()]} ${from.getFullYear()}`;
+  }
+  return { from, to, label };
+}
+
+function bookingMoment(b) { const [h,m] = (b.time||'00:00').split(':').map(Number); const d = new Date(b.date + 'T00:00:00'); d.setHours(h, m); return d; }
+function bookingPrice(b) { return b.price ?? b.szolgaltatasok?.price ?? 0; }
+
+async function loadStats() {
+  const r = statsRange();
+  document.getElementById('statsLabel').textContent = r.label;
+  ['day','week','month'].forEach(m => document.getElementById('stM'+m).classList.toggle('active', ST.mode === m));
+  document.getElementById('chartTitle').textContent = ST.mode === 'day' ? 'Termini po satima' : 'Termini po danima';
+  const { data, error } = await sb.from('foglalasok')
+    .select('date, time, status, price, profiles(name), szolgaltatasok(name, price)')
+    .gte('date', fmtDate(r.from)).lte('date', fmtDate(r.to));
+  if (error) { showToast('Greška pri učitavanju statistike.', 'err'); return; }
+  ST.data = data || [];
+  ST.range = r;
+  renderStats();
+}
+
+function renderStats() {
+  const r = ST.range; if (!r) return;
+  const now = new Date();
+  const all = ST.data;
+  const active = all.filter(b => b.status !== 'cancelled');
+  const cancelled = all.length - active.length;
+  const realized = active.filter(b => b.status === 'confirmed' && bookingMoment(b) <= now);
+  const upcoming = active.filter(b => bookingMoment(b) > now);
+  const revenue = realized.reduce((a,b) => a + bookingPrice(b), 0);
+  const expected = upcoming.reduce((a,b) => a + bookingPrice(b), 0);
+
+  document.getElementById('kpiCount').textContent = active.length;
+  document.getElementById('kpiCountSub').textContent = `${realized.length} završeno · ${upcoming.length} predstoji`;
+  document.getElementById('kpiRev').textContent = fmtRSD(revenue);
+  document.getElementById('kpiExp').textContent = fmtRSD(expected);
+  document.getElementById('kpiCancel').textContent = all.length ? Math.round(cancelled / all.length * 100) + '%' : '0%';
+  document.getElementById('kpiCancelSub').textContent = `${cancelled} od ${all.length} rezervacija`;
+
+  // buckets
+  let buckets = [];
+  if (ST.mode === 'day') {
+    const s = settings || {};
+    const sh = parseInt((s.start_time || '09:00').split(':')[0]);
+    const eh = Math.max(sh + 1, parseInt((s.end_time || '18:00').split(':')[0]));
+    for (let h = sh; h < eh; h++) buckets.push({ key: pad2(h), label: String(h), full: `${pad2(h)}:00` });
+  } else {
+    const d = new Date(r.from);
+    while (d <= r.to) {
+      buckets.push({ key: fmtDate(d), label: ST.mode === 'week' ? HU_DAYS[(d.getDay()+6)%7] : String(d.getDate()), full: `${HU_DAYS[(d.getDay()+6)%7]}, ${d.getDate()}. ${HU_MONTHS[d.getMonth()].slice(0,3).toLowerCase()}`, isToday: fmtDate(d) === fmtDate(now), future: d > now && fmtDate(d) !== fmtDate(now) });
+      d.setDate(d.getDate() + 1);
+    }
+  }
+  const idx = {}; buckets.forEach(b => { b.count = 0; b.rev = 0; idx[b.key] = b; });
+  active.forEach(b => {
+    const k = ST.mode === 'day' ? b.time.slice(0,2) : b.date;
+    const bk = idx[k]; if (!bk) return;
+    bk.count++;
+    if (b.status === 'confirmed' && bookingMoment(b) <= now) bk.rev += bookingPrice(b);
+  });
+  if (ST.mode === 'day') buckets.forEach(b => { b.future = false; });
+  ST.buckets = buckets;
+  drawChart();
+
+  // hours
+  const hours = {};
+  active.forEach(b => { const h = b.time.slice(0,2); hours[h] = (hours[h]||0) + 1; });
+  const hArr = Object.entries(hours).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0])).slice(0,5);
+  const hMax = hArr.length ? hArr[0][1] : 1;
+  document.getElementById('statsHours').innerHTML = hArr.length ? hArr.map(([h,c]) => `
+    <div class="hbar"><span class="hbar-l">${h}:00</span><span class="hbar-t"><span class="hbar-f" style="width:${c/hMax*100}%"></span></span><span class="hbar-v">${c}</span></div>`).join('')
+    : '<div class="stat-empty">Nema podataka.</div>';
+
+  // clients
+  const cl = {};
+  active.forEach(b => { const n = b.profiles?.name || '—'; cl[n] = (cl[n]||0) + 1; });
+  const cArr = Object.entries(cl).sort((a,b) => b[1]-a[1]).slice(0,5);
+  document.getElementById('statsClients').innerHTML = cArr.length ? cArr.map(([n,c],i) => `
+    <div class="client-row"><span class="client-av">${(n[0]||'?').toUpperCase()}</span><span class="client-n">${n}</span><span class="client-c">${c}×</span></div>`).join('')
+    : '<div class="stat-empty">Nema podataka.</div>';
+}
+
+function drawChart() {
+  const el = document.getElementById('statsChart');
+  const metric = ST.metric;
+  document.getElementById('stCcount').classList.toggle('active', metric === 'count');
+  document.getElementById('stCrev').classList.toggle('active', metric === 'rev');
+  const vals = ST.buckets.map(b => metric === 'count' ? b.count : b.rev);
+  const rawMax = Math.max(...vals, 0);
+  // lep gornji limit
+  let top;
+  if (metric === 'count') top = Math.max(4, Math.ceil(rawMax / 2) * 2);
+  else { const step = rawMax > 20000 ? 5000 : rawMax > 8000 ? 2000 : 1000; top = Math.max(step*2, Math.ceil(rawMax / step) * step); }
+  const ticks = [top, top/2, 0];
+  const dense = ST.buckets.length > 14;
+  const everyN = dense ? 5 : 1;
+  el.innerHTML = `
+    <div class="chart-y">${ticks.map(t => `<span>${metric === 'count' ? t : (t >= 1000 ? (t/1000) + 'k' : t)}</span>`).join('')}</div>
+    <div class="chart-plot">
+      <div class="chart-grid"><i></i><i></i><i></i></div>
+      <div class="chart-bars ${dense ? 'dense' : ''}">
+        ${ST.buckets.map((b,i) => {
+          const v = vals[i];
+          const h = v / top * 100;
+          return `<button class="bar-col ${b.isToday ? 'today' : ''} ${b.future ? 'future' : ''} ${metric === 'rev' ? 'rev' : ''}" data-i="${i}" aria-label="${b.full}: ${b.count} termina, ${fmtRSD(b.rev)}">
+            <span class="bar-val">${v ? (metric === 'count' ? v : '') : ''}</span>
+            <span class="bar" style="height:${h}%"></span>
+          </button>`;
+        }).join('')}
+      </div>
+      <div class="chart-x ${dense ? 'dense' : ''}">${ST.buckets.map((b,i) => `<span class="${b.isToday ? 'today' : ''}">${(i % everyN === 0) ? b.label : ''}</span>`).join('')}</div>
+    </div>`;
+  el.querySelectorAll('.bar-col').forEach(btn => {
+    const show = () => {
+      const b = ST.buckets[btn.dataset.i];
+      el.querySelectorAll('.bar-col').forEach(x => x.classList.remove('sel'));
+      btn.classList.add('sel');
+      document.getElementById('chartReadout').innerHTML = `<strong>${b.full}</strong> · ${b.count} ${b.count === 1 ? 'termin' : 'termina'} · ${fmtRSD(b.rev)}`;
+    };
+    btn.addEventListener('click', show);
+    btn.addEventListener('mouseenter', show);
+    btn.addEventListener('focus', show);
+  });
+  const todayBtn = el.querySelector('.bar-col.today');
+  document.getElementById('chartReadout').textContent = rawMax === 0 ? 'Nema rezervacija u ovom periodu.' : 'Pređite mišem ili dodirnite stubić za detalje.';
+  if (todayBtn && rawMax) todayBtn.dispatchEvent(new Event('click'));
 }
 </script>
 </body>
