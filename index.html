@@ -650,6 +650,19 @@ nav.open .nav-toggle span:nth-child(3) { transform:translateY(-7.5px) rotate(-45
   .svc-add > .form-group:first-child { grid-column:1/-1; }
   .svc-add > .btn { grid-column:1/-1; width:100% !important; }
 }
+
+/* ===== VIŠE PAUZA ===== */
+.brk-wrap { margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); }
+.brk-list { display:flex; flex-direction:column; gap:8px; }
+.brk-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.brk-l { font-size:12px; font-weight:600; color:var(--muted); width:46px; }
+.brk-row input[type=time] { width:130px; min-width:0; padding:8px 10px; border-radius:10px; border:1.5px solid rgba(255,255,255,.9); background:rgba(255,255,255,.65); font-size:15px; color:var(--text); }
+.brk-dash { color:var(--muted); }
+.brk-x { width:32px; height:32px; border-radius:50%; border:none; background:rgba(14,18,48,.07); color:var(--muted); cursor:pointer; font-size:13px; }
+.brk-x:hover { background:#fde2e2; color:var(--danger); }
+.brk-add { margin-top:10px; background:var(--accent-dim); color:var(--accent); border:none; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+.brk-add:hover { background:rgba(43,68,255,.16); }
+.brk-row.bad input { border-color:var(--danger); }
 </style>
 
 <script>
@@ -875,7 +888,7 @@ async function loadBlockedDatesForCal() {
   const today = new Date();
   const future = new Date(); future.setDate(future.getDate() + 60);
   const { data: schedule } = await sb.from('work_schedule')
-    .select('date, is_working, break_start, break_end')
+    .select('date, is_working, break_start, break_end, breaks')
     .gte('date', fmtDate(today))
     .lte('date', fmtDate(future));
   
@@ -957,6 +970,18 @@ function renderSlots() {
   }).join('');
 }
 
+function dayBreaks(daySchedule, s) {
+  const toPair = (a, b) => (a && b) ? [timeToMin(a), timeToMin(b)] : null;
+  if (daySchedule) {
+    if (Array.isArray(daySchedule.breaks) && daySchedule.breaks.length) {
+      return daySchedule.breaks.map(x => toPair(x.s, x.e)).filter(Boolean);
+    }
+    const one = toPair(daySchedule.break_start, daySchedule.break_end);
+    return one ? [one] : [];
+  }
+  const g = toPair(s?.break_start, s?.break_end);
+  return g ? [g] : [];
+}
 function generateSlots() {
   const s = settings || {};
   const [sh, sm] = (s.start_time || '09:00').split(':').map(Number);
@@ -964,13 +989,9 @@ function generateSlots() {
   const interval = s.slot_minutes || 30;
   const dur = state.service?.duration || 30;
   
-  // Napi szünet: work_schedule-ből vesszük ha van, különben settings-ből
-  const daySchedule = state.workSchedule?.[state.date];
-  const breakStartStr = daySchedule?.break_start || s.break_start;
-  const breakEndStr = daySchedule?.break_end || s.break_end;
-  const breakS = breakStartStr ? timeToMin(breakStartStr) : null;
-  const breakE = breakEndStr ? timeToMin(breakEndStr) : null;
-  
+  // Napi pauze: ako postoji red u rasporedu za taj dan, važe samo njegove pauze; inače opšta pauza
+  const breaks = dayBreaks(state.workSchedule?.[state.date], s);
+
   const endMin = eh * 60 + em;
   const slots = [];
 
@@ -980,7 +1001,7 @@ function generateSlots() {
 
   for (let min = sh*60+sm; min + dur <= endMin; min += interval) {
     if (isToday && min <= nowMin) continue;
-    if (breakS && breakE && min >= breakS && min < breakE) continue;
+    if (breaks.some(([bs, be]) => min < be && min + dur > bs)) continue;
     slots.push(minToTime(min));
   }
   return slots;
@@ -1429,8 +1450,9 @@ async function renderWeekSchedule() {
     const dayName = SR_DAYS_FULL[dow];
     const existing = weekScheduleData[dateStr];
     const isWorking = existing ? existing.is_working : false;
-    const breakStart = existing?.break_start || '';
-    const breakEnd = existing?.break_end || '';
+    const brks = Array.isArray(existing?.breaks) && existing.breaks.length
+      ? existing.breaks
+      : (existing?.break_start && existing?.break_end ? [{ s: existing.break_start, e: existing.break_end }] : []);
     const isPast = d < new Date(new Date().setHours(0,0,0,0));
 
     return `
@@ -1445,40 +1467,63 @@ async function renderWeekSchedule() {
             </label>
             <span style="font-size:12px;color:var(--muted)">${dateStr}</span>
           </div>
-          <div id="break_${dateStr}" style="display:${isWorking ? 'flex' : 'none'};align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-size:11px;color:var(--muted);letter-spacing:1px">PAUZA:</span>
-            <input type="time" id="bs_${dateStr}" value="${breakStart}"
-              style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:7px 8px;color:var(--text);font-size:14px;width:100px">
-            <span style="color:var(--muted)">–</span>
-            <input type="time" id="be_${dateStr}" value="${breakEnd}"
-              style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:7px 8px;color:var(--text);font-size:14px;width:100px">
-          </div>
+        </div>
+        <div id="break_${dateStr}" class="brk-wrap" style="display:${isWorking ? 'block' : 'none'}">
+          <div class="brk-list" id="brklist_${dateStr}">${brks.map(x => breakRowHTML(x.s, x.e, isPast)).join('')}</div>
+          ${isPast ? '' : `<button type="button" class="brk-add" onclick="addBreakRow('${dateStr}')">+ Pauza</button>`}
         </div>
       </div>
     `;
   }).join('');
 }
 
+function breakRowHTML(st = '', en = '', disabled = false) {
+  return `<div class="brk-row">
+    <span class="brk-l">Pauza</span>
+    <input type="time" class="brk-s" value="${st || ''}" ${disabled ? 'disabled' : ''} aria-label="Početak pauze">
+    <span class="brk-dash">–</span>
+    <input type="time" class="brk-e" value="${en || ''}" ${disabled ? 'disabled' : ''} aria-label="Kraj pauze">
+    ${disabled ? '' : '<button type="button" class="brk-x" onclick="this.parentElement.remove()" aria-label="Ukloni pauzu">✕</button>'}
+  </div>`;
+}
+function addBreakRow(dateStr) {
+  const list = document.getElementById(`brklist_${dateStr}`);
+  const tmp = document.createElement('div');
+  tmp.innerHTML = breakRowHTML('12:00', '12:30');
+  list.appendChild(tmp.firstElementChild);
+}
 function toggleDayBreak(dateStr) {
   const checked = document.getElementById(`wd_${dateStr}`).checked;
-  document.getElementById(`break_${dateStr}`).style.display = checked ? 'flex' : 'none';
+  document.getElementById(`break_${dateStr}`).style.display = checked ? 'block' : 'none';
 }
 
 async function saveWeekSchedule() {
   const days = getWeekDates(adminWeekOffset);
   const dateStrs = days.map(d => fmtDate(d));
   
+  let invalid = false;
   const upserts = dateStrs.map(dateStr => {
     const isWorking = document.getElementById(`wd_${dateStr}`)?.checked || false;
-    const breakStart = document.getElementById(`bs_${dateStr}`)?.value || null;
-    const breakEnd = document.getElementById(`be_${dateStr}`)?.value || null;
+    const breaks = [];
+    if (isWorking) {
+      document.querySelectorAll(`#brklist_${dateStr} .brk-row`).forEach(row => {
+        const st = row.querySelector('.brk-s').value, en = row.querySelector('.brk-e').value;
+        if (!st && !en) return;
+        if (!st || !en || timeToMin(en) <= timeToMin(st)) { invalid = true; row.classList.add('bad'); return; }
+        row.classList.remove('bad');
+        breaks.push({ s: st, e: en });
+      });
+      breaks.sort((x, y) => timeToMin(x.s) - timeToMin(y.s));
+    }
     return {
       date: dateStr,
       is_working: isWorking,
-      break_start: isWorking && breakStart ? breakStart : null,
-      break_end: isWorking && breakEnd ? breakEnd : null,
+      breaks,
+      break_start: breaks[0]?.s || null,
+      break_end: breaks[0]?.e || null,
     };
   });
+  if (invalid) { showToast('Proveri pauze: kraj mora biti posle početka.', 'err'); return; }
 
   const { error } = await sb.from('work_schedule').upsert(upserts, { onConflict: 'date' });
   if (error) { showToast('Greška pri čuvanju!', 'err'); return; }
