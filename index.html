@@ -225,7 +225,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
 <!-- AUTH -->
 <div class="auth-screen" id="authScreen">
   <div class="auth-box">
-    <div class="logo auth-logo"><span class="logo-pole"></span>Termin</div>
+    <div class="logo auth-logo"><span class="logo-pole"></span><span class="logo-text" id="authSalon">Termin</span></div>
     <div class="auth-sub">Zakazivanje termina</div>
     <div class="auth-tabs">
       <div class="auth-tab active" onclick="switchTab('login')">Prijava</div>
@@ -237,6 +237,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
       <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="email@example.com"></div>
       <div class="field"><label>Lozinka</label><input type="password" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-accent" onclick="doLogin()">Prijava</button>
+      <button type="button" class="link-btn" onclick="showReset()">Zaboravili ste lozinku?</button>
     </div>
 
     <!-- REGISTER -->
@@ -248,6 +249,22 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
       <button class="btn btn-accent" onclick="doRegister()">Registracija</button>
     </div>
 
+    <!-- RESET -->
+    <div id="resetForm" style="display:none">
+      <div class="auth-note">Unesite email naloga. Poslaćemo vam link za novu lozinku.</div>
+      <div class="field"><label>Email</label><input type="email" id="resetEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter')sendReset()"></div>
+      <button class="btn btn-accent" onclick="sendReset()">Pošalji link</button>
+      <button type="button" class="link-btn" onclick="backToLogin()">Nazad na prijavu</button>
+    </div>
+
+    <!-- NOVA LOZINKA -->
+    <div id="newPwForm" style="display:none">
+      <div class="auth-note">Unesite novu lozinku.</div>
+      <div class="field"><label>Nova lozinka</label><input type="password" id="newPw1" placeholder="minimum 6 karaktera"></div>
+      <div class="field"><label>Ponovite lozinku</label><input type="password" id="newPw2" placeholder="••••••••" onkeydown="if(event.key==='Enter')saveNewPw()"></div>
+      <button class="btn btn-accent" onclick="saveNewPw()">Sačuvaj lozinku</button>
+    </div>
+
     <div class="auth-err" id="authErr"></div>
   </div>
 </div>
@@ -256,7 +273,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
 <div class="app" id="appScreen">
 
   <nav>
-    <div class="logo nav-logo"><span class="logo-pole"></span>Termin</div>
+    <div class="logo nav-logo"><span class="logo-pole"></span><span class="logo-text" id="navSalon">Termin</span></div>
     <button class="nav-toggle" id="navToggle" onclick="toggleMenu(event)" aria-label="Meni" aria-expanded="false" aria-controls="navMenu"><span></span><span></span><span></span></button>
     <div class="nav-right" id="navMenu">
       <button class="nav-btn active" id="navBook" onclick="showPage('book')">Zakazivanje</button>
@@ -274,6 +291,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
       <div class="hero-title">Zakažite termin<br>za nekoliko minuta</div>
       <div class="hero-sub">Izaberite uslugu, dan i vreme.</div>
     </div>
+    <div class="salon-info" id="salonInfo" style="display:none"></div>
 
     <div class="steps" id="stepsBar">
       <div class="step-item active" id="s1"><div class="step-dot">1</div><span>Usluga</span></div>
@@ -374,7 +392,10 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
 
   <!-- REZERVACIJE PAGE -->
   <div class="page" id="pageRezervacije">
-    <div class="section-head"><h2>Rezervacije</h2><p>Današnje i buduće rezervacije</p></div>
+    <div class="section-head head-row">
+      <div><h2>Rezervacije</h2><p>Današnje i buduće rezervacije</p></div>
+      <button class="btn btn-accent btn-inline" id="newRezBtn" onclick="openNewBooking()">+ Nova rezervacija</button>
+    </div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px" id="rezFilters">
       <button class="filter-btn active" onclick="filterRez('all', this)">Sve</button>
@@ -445,11 +466,23 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
     <div class="admin-cols">
       <div class="admin-col">
         <div class="card">
+          <div class="card-title">Podaci o salonu</div>
+          <div class="form-group"><label>Naziv salona</label><input type="text" id="salonName" placeholder="Frizerski salon Marko" maxlength="60"></div>
+          <div class="grid3" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group"><label>Telefon</label><input type="tel" id="salonPhone" placeholder="+381 60 123 4567"></div>
+            <div class="form-group"><label>Adresa</label><input type="text" id="salonAddress" placeholder="Glavna 1, Novi Bečej"></div>
+          </div>
+          <div class="form-group"><label>Radno vreme (tekst koji vide klijenti)</label><input type="text" id="salonHours" placeholder="Pon–Pet 9–18, Sub 9–14" maxlength="80"></div>
+          <button class="btn btn-accent" style="max-width:200px" onclick="saveSalon()">Sačuvaj podatke</button>
+        </div>
+
+        <div class="card">
           <div class="card-title">Opšte podešavanje</div>
-          <div class="grid3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div class="grid3" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div class="form-group"><label>Početak rada</label><input type="time" id="startTime" value="09:00"></div>
             <div class="form-group"><label>Kraj rada</label><input type="time" id="endTime" value="18:00"></div>
             <div class="form-group"><label>Interval (min)</label><input type="number" id="slotMin" value="30" min="15" max="120" step="15"></div>
+            <div class="form-group"><label>Rok za otkazivanje (sati)</label><input type="number" id="cancelHours" value="2" min="0" max="72"></div>
           </div>
           <button class="btn btn-accent" style="max-width:200px" onclick="saveSettings()">Sačuvaj</button>
         </div>
@@ -494,6 +527,13 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
     </div>
   </div>
 
+</div>
+
+<div class="modal" id="modal" hidden onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head"><div class="card-title" id="modalTitle" style="margin:0"></div><button class="modal-x" onclick="closeModal()" aria-label="Zatvori">✕</button></div>
+    <div id="modalBody"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -666,6 +706,39 @@ nav.open .nav-toggle span:nth-child(3) { transform:translateY(-7.5px) rotate(-45
 .brk-add { margin-top:10px; background:var(--accent-dim); color:var(--accent); border:none; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; }
 .brk-add:hover { background:rgba(43,68,255,.16); }
 .brk-row.bad input { border-color:var(--danger); }
+
+/* ===== NOVE FUNKCIJE ===== */
+.logo-text { max-width:60vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width:700px) { .nav-logo .logo-text { max-width:calc(100vw - 110px); } }
+.link-btn { display:block; width:100%; margin-top:14px; background:none; border:none; color:var(--accent); font-size:14px; font-weight:600; cursor:pointer; padding:6px; text-align:center; }
+.link-btn:hover { text-decoration:underline; }
+.auth-note { font-size:14px; color:var(--muted); margin-bottom:16px; text-align:center; }
+.salon-info { display:flex; flex-wrap:wrap; gap:10px; margin:-8px 0 22px; }
+.si-item { flex:1 1 150px; background:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.85); border-radius:14px; padding:10px 14px; font-size:14px; font-weight:600; -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); min-width:0; overflow-wrap:anywhere; }
+.si-item b { display:block; font-size:11px; font-weight:600; color:var(--muted); margin-bottom:2px; }
+.si-item a { color:var(--accent); text-decoration:none; }
+.head-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.btn-inline { width:auto; padding-left:22px; padding-right:22px; }
+.tag-guest { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; background:rgba(14,18,48,.07); color:var(--muted); vertical-align:middle; }
+.bc-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; justify-content:flex-end; }
+.bc-hint { font-size:12px; color:var(--muted); margin-top:8px; max-width:220px; margin-left:auto; }
+.modal { position:fixed; inset:0; z-index:300; display:flex; align-items:flex-end; justify-content:center; padding:16px; background:rgba(14,18,48,.38); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); overflow-y:auto; }
+.modal[hidden] { display:none !important; }
+.modal-box { width:100%; max-width:480px; margin:auto; background:rgba(255,255,255,.88); border:1px solid rgba(255,255,255,.9); border-radius:26px; padding:22px; box-shadow:0 30px 80px rgba(20,30,120,.35); -webkit-backdrop-filter:blur(24px) saturate(1.5); backdrop-filter:blur(24px) saturate(1.5); animation:rise .25s ease both; }
+.modal-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+.modal-x { width:36px; height:36px; border-radius:50%; border:none; background:rgba(14,18,48,.07); cursor:pointer; font-size:14px; color:var(--text); }
+.modal-sub { font-size:14px; color:var(--muted); margin-bottom:14px; }
+.modal-sub strong { color:var(--text); }
+.modal-slots { grid-template-columns:repeat(4,1fr); margin-bottom:12px; }
+.lbl { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+.form-group select, #nbSvc { width:100%; padding:13px 14px; background:rgba(255,255,255,.6); border:1.5px solid rgba(255,255,255,.9); border-radius:12px; color:var(--text); font-size:16px; }
+@media (min-width:600px) { .modal { align-items:center; } }
+@media (max-width:420px) { .modal-slots { grid-template-columns:repeat(3,1fr); } }
+
+.profile-header > div { min-width:0; }
+.profile-header .profile-name { overflow-wrap:anywhere; line-height:1.2; }
+.profile-header #editProfileBtn { flex-shrink:0; padding:8px 14px; font-size:13px; white-space:nowrap; }
+.bc-hint { text-align:right; }
 </style>
 
 <script>
@@ -676,6 +749,8 @@ const SUPA_URL = 'https://tiknsfohvrlbldgkhqlq.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpa25zZm9odnJsYmxkZ2tocWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDMyMDMsImV4cCI6MjA5NjYxOTIwM30.Dr1hviZ1SxdhkOb2vq4UvgrPfAe5z6p1tztwfoU8ZNs';
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+let recovering = /type=recovery/.test(location.hash);
+sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') { recovering = true; showNewPw(); } });
 
 // =====================================================
 // STATE
@@ -698,9 +773,11 @@ const HU_DAYS = ['Pon','Uto','Sre','Čet','Pet','Sub','Ned'];
 // =====================================================
 // INIT
 // =====================================================
+loadSettings();
 // Session ellenőrzés oldal betöltésekor
 window.addEventListener('load', async () => {
   try {
+    if (recovering) { showNewPw(); return; }
     const { data } = await sb.auth.getSession();
     if (data.session) {
       currentUser = data.session.user;
@@ -728,7 +805,55 @@ function switchTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
   document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('resetForm').style.display = 'none';
+  document.getElementById('newPwForm').style.display = 'none';
+  document.querySelector('.auth-tabs').style.display = '';
   document.getElementById('authErr').textContent = '';
+}
+function showReset() {
+  ['loginForm','registerForm','newPwForm'].forEach(i => document.getElementById(i).style.display = 'none');
+  document.getElementById('resetForm').style.display = 'block';
+  document.querySelector('.auth-tabs').style.display = 'none';
+  document.getElementById('resetEmail').value = document.getElementById('loginEmail').value;
+  setAuthMsg('');
+}
+function backToLogin() { switchTab('login'); }
+function setAuthMsg(msg, ok) {
+  const el = document.getElementById('authErr');
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--ok)' : '';
+}
+async function sendReset() {
+  const email = document.getElementById('resetEmail').value.trim();
+  if (!email) { setAuthMsg('Unesite email.'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  if (error) {
+    setAuthMsg(/rate|seconds|limit/i.test(error.message) ? 'Previše pokušaja. Pokušajte ponovo za nekoliko minuta.' : 'Greška: ' + error.message);
+    return;
+  }
+  setAuthMsg('Ako nalog postoji, poslali smo link na vaš email.', true);
+}
+function showNewPw() {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+  ['loginForm','registerForm','resetForm'].forEach(i => document.getElementById(i).style.display = 'none');
+  document.getElementById('newPwForm').style.display = 'block';
+  document.querySelector('.auth-tabs').style.display = 'none';
+  setAuthMsg('');
+}
+async function saveNewPw() {
+  const a = document.getElementById('newPw1').value, b = document.getElementById('newPw2').value;
+  if (a.length < 6) { setAuthMsg('Lozinka mora imati najmanje 6 karaktera.'); return; }
+  if (a !== b) { setAuthMsg('Lozinke se ne poklapaju.'); return; }
+  const { data, error } = await sb.auth.updateUser({ password: a });
+  if (error) { setAuthMsg('Greška: ' + error.message); return; }
+  recovering = false;
+  try { history.replaceState(null, '', location.pathname); } catch(e) {}
+  currentUser = data.user;
+  await loadProfile();
+  document.getElementById('newPwForm').style.display = 'none';
+  showApp();
+  showToast('Lozinka je promenjena!');
 }
 
 async function doLogin() {
@@ -880,6 +1005,23 @@ function selectService(svc, el) {
 async function loadSettings() {
   const { data } = await sb.from('beallitasok').select('*').limit(1).single();
   settings = data;
+  applySalon();
+}
+const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function salonName() { return (settings?.salon_name || '').trim(); }
+function applySalon() {
+  const name = salonName() || 'Termin';
+  document.title = salonName() ? `${salonName()} – zakazivanje` : 'Zakazivanje termina';
+  ['navSalon','authSalon'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = name; });
+  const info = document.getElementById('salonInfo');
+  if (!info) return;
+  const parts = [];
+  if (settings?.salon_address) parts.push(`<span class="si-item"><b>Adresa</b>${esc(settings.salon_address)}</span>`);
+  if (settings?.salon_phone) parts.push(`<span class="si-item"><b>Telefon</b><a href="tel:${esc(settings.salon_phone.replace(/[^+\d]/g,''))}">${esc(settings.salon_phone)}</a></span>`);
+  const hours = settings?.salon_hours || (settings?.start_time && settings?.end_time ? `${settings.start_time}–${settings.end_time}` : '');
+  if (hours && parts.length) parts.push(`<span class="si-item"><b>Radno vreme</b>${esc(hours)}</span>`);
+  info.innerHTML = parts.join('');
+  info.style.display = parts.length ? 'flex' : 'none';
 }
 
 async function loadBlockedDatesForCal() {
@@ -949,12 +1091,8 @@ async function selectDate(dateStr) {
   renderCalendar();
 
   // Foglalt időpontok lekérése
-  const { data } = await sb.from('foglalasok')
-    .select('time')
-    .eq('date', dateStr)
-    .neq('status', 'cancelled');
-
-  state.takenSlots = (data || []).map(r => r.time);
+  const { data } = await sb.rpc('taken_slots', { p_date: dateStr });
+  state.takenSlots = (data || []).map(r => r.slot_time);
   renderSlots();
   document.getElementById('slotSection').style.display = 'block';
   document.getElementById('slotLabel').textContent = `Slobodni termini – ${dateStr}`;
@@ -985,29 +1123,44 @@ function dayBreaks(daySchedule, s) {
   const g = toPair(s?.break_start, s?.break_end);
   return g ? [g] : [];
 }
-function generateSlots() {
+function computeSlots(dateStr, duration, daySchedule) {
   const s = settings || {};
   const [sh, sm] = (s.start_time || '09:00').split(':').map(Number);
   const [eh, em] = (s.end_time || '18:00').split(':').map(Number);
   const interval = s.slot_minutes || 30;
-  const dur = state.service?.duration || 30;
-  
-  // Napi pauze: ako postoji red u rasporedu za taj dan, važe samo njegove pauze; inače opšta pauza
-  const breaks = dayBreaks(state.workSchedule?.[state.date], s);
-
+  const dur = duration || 30;
+  const breaks = dayBreaks(daySchedule, s);
   const endMin = eh * 60 + em;
-  const slots = [];
-
   const now = new Date();
-  const isToday = state.date === fmtDate(now);
+  const isToday = dateStr === fmtDate(now);
   const nowMin = now.getHours()*60 + now.getMinutes();
-
+  const slots = [];
   for (let min = sh*60+sm; min + dur <= endMin; min += interval) {
     if (isToday && min <= nowMin) continue;
     if (breaks.some(([bs, be]) => min < be && min + dur > bs)) continue;
     slots.push(minToTime(min));
   }
   return slots;
+}
+function generateSlots() {
+  return computeSlots(state.date, state.service?.duration || 30, state.workSchedule?.[state.date]);
+}
+// Slobodni termini za proizvoljan dan (admin forma i izmena termina)
+async function freeSlotsFor(dateStr, duration, ownTime) {
+  if (!settings) await loadSettings();
+  const [sch, bl, tk] = await Promise.all([
+    sb.from('work_schedule').select('*').eq('date', dateStr),
+    sb.from('blocked_dates').select('date').eq('date', dateStr),
+    sb.rpc('taken_slots', { p_date: dateStr })
+  ]);
+  const row = (sch.data || [])[0];
+  if ((bl.data || []).length) return { slots: [], reason: 'Taj dan je neradni.' };
+  const dow = new Date(dateStr + 'T00:00:00').getDay();
+  const working = row ? row.is_working : (settings?.workdays || [1,2,3,4,5,6]).includes(dow);
+  if (!working) return { slots: [], reason: 'Taj dan se ne radi.' };
+  const taken = (tk.data || []).map(r => r.slot_time);
+  const slots = computeSlots(dateStr, duration, row).filter(t => !taken.includes(t) || t === ownTime);
+  return { slots, reason: slots.length ? '' : 'Nema slobodnih termina za ovaj dan.' };
 }
 
 function selectSlot(t) {
@@ -1071,12 +1224,16 @@ async function submitBooking() {
     note: document.getElementById('bookNote').value.trim()
   });
 
-  if (error) { showToast('Greška! Pokušaj ponovo.', 'err'); return; }
+  if (error) {
+    if (error.code === '23505') { showToast('Termin je upravo zauzet. Izaberite drugi.', 'err'); goStep(2); selectDate(state.date); }
+    else showToast('Greška! Pokušaj ponovo.', 'err');
+    return;
+  }
 
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('pSuccess').classList.add('active');
   document.getElementById('stepsBar').style.display = 'none';
-  document.getElementById('successInfo').textContent = `${state.date} ${state.slot} – ${state.service.name}`;
+  document.getElementById('successInfo').textContent = `${state.date} ${state.slot} – ${state.service.name}` + (salonName() ? ` · ${salonName()}` : '');
 }
 
 function resetBooking() {
@@ -1128,12 +1285,17 @@ function fillProfile() {
   document.getElementById('profileAvatar').textContent = name.charAt(0).toUpperCase();
 }
 
+let myBookings = {};
+function cancelWindowH() { const h = settings?.cancel_hours; return (h === null || h === undefined) ? 2 : h; }
+function bookingMoment(b) { const [h,m] = (b.time||'00:00').split(':').map(Number); const d = new Date(b.date + 'T00:00:00'); d.setHours(h, m); return d; }
+function canChange(b) { return bookingMoment(b).getTime() - Date.now() >= cancelWindowH() * 3600e3; }
 async function loadMyBookings() {
   const list = document.getElementById('bookingsList');
   list.innerHTML = '<div class="spinner"></div>';
+  if (!settings) await loadSettings();
 
   const { data } = await sb.from('foglalasok')
-    .select('*, szolgaltatasok(name)')
+    .select('*, szolgaltatasok(name, duration)')
     .eq('user_id', currentUser.id)
     .order('date', { ascending: false });
 
@@ -1142,39 +1304,32 @@ async function loadMyBookings() {
     return;
   }
 
-  const today = fmtDate(new Date());
+  myBookings = {};
   list.innerHTML = data.map(b => {
-    const isPast = b.date < today;
+    myBookings[b.id] = b;
+    const isPast = bookingMoment(b) < new Date();
     const svcName = b.szolgaltatasok?.name || '—';
-    const price = b.szolgaltatasok?.price || 0;
     const badgeClass = b.status === 'confirmed' ? 'badge-confirmed' : b.status === 'cancelled' ? 'badge-cancelled' : 'badge-pending';
     const badgeLabel = b.status === 'confirmed' ? 'Potvrđeno' : b.status === 'cancelled' ? 'Otkazano' : 'Na čekanju';
+    const active = !isPast && b.status !== 'cancelled';
+    const actions = active ? (canChange(b)
+      ? `<div class="bc-actions"><button class="bc-cancel" onclick="openReschedule('${b.id}')">Izmeni termin</button><button class="bc-cancel" onclick="cancelBooking('${b.id}')">Otkaži</button></div>`
+      : `<div class="bc-hint">Izmena i otkazivanje nisu moguće manje od ${cancelWindowH()} h pre termina.</div>`) : '';
 
     return `
       <div class="booking-card ${isPast ? 'past' : ''}">
         <div class="bc-left">
-          <div class="bc-service">${svcName} – ${price.toLocaleString()} RSD</div>
+          <div class="bc-service">${esc(svcName)}</div>
           <div class="bc-date">${b.date} ${b.time}</div>
         </div>
         <div class="bc-right">
           <span class="badge ${badgeClass}">${badgeLabel}</span>
-          ${!isPast && b.status !== 'cancelled' ? `<br><button class="bc-cancel" onclick="cancelBooking('${b.id}')">Otkaži</button>` : ''}
+          ${actions}
         </div>
       </div>
     `;
   }).join('');
 }
-
-async function cancelBooking(id) {
-  if (!confirm('Sigurno želiš da otkažeš ovu rezervaciju?')) return;
-  await sb.from('foglalasok').update({ status: 'cancelled' }).eq('id', id);
-  showToast('Zakazivanje lemondva.');
-  loadMyBookings();
-}
-
-// =====================================================
-// ADMIN
-// =====================================================
 async function addBlockedDate() {
   const date = document.getElementById('blockDate').value;
   const reason = document.getElementById('blockReason').value.trim();
@@ -1208,11 +1363,77 @@ async function removeBlockedDate(id) {
   loadBlockedDates();
 }
 
-// =====================================================
-// REZERVACIJE OLDAL
-// =====================================================
-let allRezervacije = [];
-let currentRezFilter = 'all';
+function rpcError(error) {
+  const m = error?.message || '';
+  if (m.includes('deadline')) return `Rok je prošao: izmena i otkazivanje nisu moguće manje od ${cancelWindowH()} h pre termina.`;
+  if (m.includes('slot_taken')) return 'Taj termin je već zauzet. Izaberite drugi.';
+  if (m.includes('blocked')) return 'Taj dan je neradni.';
+  if (m.includes('past')) return 'Taj termin je već prošao.';
+  if (m.includes('not_found')) return 'Rezervacija nije pronađena.';
+  return 'Greška! Pokušaj ponovo.';
+}
+async function cancelBooking(id) {
+  if (!confirm('Sigurno želiš da otkažeš ovu rezervaciju?')) return;
+  const { error } = await sb.rpc('cancel_my_booking', { p_id: id });
+  if (error) { showToast(rpcError(error), 'err'); loadMyBookings(); return; }
+  showToast('Rezervacija je otkazana.');
+  loadMyBookings();
+}
+
+// ---------- Modal ----------
+function openModal(title, html) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modal').hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('modal').hidden = true;
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+function slotsHTML(slots, selected, fn) {
+  return slots.map(t => `<div class="slot ${t === selected ? 'sel-slot' : ''}" onclick="${fn}('${t}')">${t}</div>`).join('');
+}
+
+// ---------- Izmena termina (klijent) ----------
+const RS = { id:null, date:null, time:null, own:null, dur:30 };
+function openReschedule(id) {
+  const b = myBookings[id]; if (!b) return;
+  RS.id = id; RS.own = { date: b.date, time: b.time }; RS.dur = b.szolgaltatasok?.duration || 30; RS.date = null; RS.time = null;
+  const today = fmtDate(new Date());
+  openModal('Izmena termina', `
+    <div class="modal-sub">Trenutno: <strong>${b.date} ${b.time}</strong>. Nakon izmene termin čeka potvrdu.</div>
+    <div class="form-group"><label>Novi datum</label><input type="date" id="rsDate" min="${today}" onchange="rsLoad()"></div>
+    <div id="rsSlotsWrap"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-ghost" onclick="closeModal()">Odustani</button>
+      <button class="btn btn-accent" id="rsSave" disabled onclick="rsSave()">Sačuvaj</button>
+    </div>`);
+}
+async function rsLoad() {
+  const d = document.getElementById('rsDate').value; RS.date = d; RS.time = null;
+  document.getElementById('rsSave').disabled = true;
+  const wrap = document.getElementById('rsSlotsWrap');
+  if (!d) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="spinner"></div>';
+  const own = d === RS.own.date ? RS.own.time : null;
+  const { slots, reason } = await freeSlotsFor(d, RS.dur, own);
+  wrap.innerHTML = slots.length ? `<div class="slots-grid modal-slots" id="rsSlots">${slotsHTML(slots, null, 'rsPick')}</div>` : `<div class="empty" style="padding:20px">${reason}</div>`;
+}
+function rsPick(t) {
+  RS.time = t;
+  document.querySelectorAll('#rsSlots .slot').forEach(el => el.classList.toggle('sel-slot', el.textContent === t));
+  document.getElementById('rsSave').disabled = false;
+}
+async function rsSave() {
+  if (!RS.date || !RS.time) return;
+  const { error } = await sb.rpc('reschedule_my_booking', { p_id: RS.id, p_date: RS.date, p_time: RS.time });
+  if (error) { showToast(rpcError(error), 'err'); if (error.message.includes('slot_taken')) rsLoad(); return; }
+  closeModal();
+  showToast('Termin je izmenjen. Čeka potvrdu.');
+  loadMyBookings();
+}
 
 async function loadRezervacije() {
   const list = document.getElementById('rezervacijeList');
@@ -1272,8 +1493,8 @@ function renderRezervacije(data) {
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
           <div>
-            <div style="font-size:14px;font-weight:500">${b.time} · ${b.profiles?.name || '—'}</div>
-            <div style="font-size:12px;color:var(--muted)">${b.profiles?.phone || '—'} · ${b.szolgaltatasok?.name || '—'}</div>
+            <div style="font-size:14px;font-weight:500">${b.time} · ${esc(b.profiles?.name || b.guest_name || '—')}${!b.user_id ? ' <span class="tag-guest">bez naloga</span>' : ''}</div>
+            <div style="font-size:12px;color:var(--muted)">${esc(b.profiles?.phone || b.guest_phone || '—')} · ${esc(b.szolgaltatasok?.name || '—')}</div>
             ${b.note ? `<div style="font-size:12px;color:var(--muted);font-style:italic">${b.note}</div>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:6px">
@@ -1338,7 +1559,7 @@ async function loadAdminBookings() {
     <div class="admin-booking-row" style="${isToday ? 'background:rgba(43,68,255,0.06);border-left:3px solid var(--accent);padding-left:12px;margin-left:-12px;' : ''}">
       <div>
         ${isToday ? '<span style="font-size:10px;letter-spacing:1px;color:var(--accent);text-transform:uppercase">Danas · </span>' : ''}
-        <strong>${b.profiles?.name || '—'}</strong> · ${b.profiles?.phone || '—'}<br>
+        <strong>${esc(b.profiles?.name || b.guest_name || '—')}</strong> · ${esc(b.profiles?.phone || b.guest_phone || '—')}<br>
         <span style="color:var(--muted);font-size:12px">${b.date} ${b.time} · ${b.szolgaltatasok?.name || '—'}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
@@ -1542,6 +1763,11 @@ async function loadSettingsAdmin() {
   document.getElementById('startTime').value = data.start_time || '09:00';
   document.getElementById('endTime').value = data.end_time || '18:00';
   document.getElementById('slotMin').value = data.slot_minutes || 30;
+  document.getElementById('cancelHours').value = data.cancel_hours ?? 2;
+  document.getElementById('salonName').value = data.salon_name || '';
+  document.getElementById('salonPhone').value = data.salon_phone || '';
+  document.getElementById('salonAddress').value = data.salon_address || '';
+  document.getElementById('salonHours').value = data.salon_hours || '';
   const bs = document.getElementById('breakStart'), be = document.getElementById('breakEnd');
   if (bs) bs.value = data.break_start || '';
   if (be) be.value = data.break_end || '';
@@ -1555,22 +1781,17 @@ async function loadSettingsAdmin() {
 }
 
 async function saveSettings() {
-  const workdays = [...document.querySelectorAll('.wd-btn.on')].map(b => parseInt(b.dataset.day));
   const payload = {
-    workdays,
     start_time: document.getElementById('startTime').value,
     end_time: document.getElementById('endTime').value,
-    slot_minutes: parseInt(document.getElementById('slotMin').value),
-    break_start: document.getElementById('breakStart').value || null,
-    break_end: document.getElementById('breakEnd').value || null,
+    slot_minutes: parseInt(document.getElementById('slotMin').value) || 30,
+    cancel_hours: Math.max(0, parseInt(document.getElementById('cancelHours').value) || 0),
   };
   const { data } = await sb.from('beallitasok').select('id').limit(1).single();
-  if (data) {
-    await sb.from('beallitasok').update(payload).eq('id', data.id);
-  } else {
-    await sb.from('beallitasok').insert(payload);
-  }
-  settings = payload;
+  const res = data ? await sb.from('beallitasok').update(payload).eq('id', data.id) : await sb.from('beallitasok').insert(payload);
+  if (res.error) { showToast('Greška pri čuvanju!', 'err'); return; }
+  settings = { ...(settings || {}), ...payload };
+  applySalon();
   showToast('Podešavanja sačuvana!');
 }
 
@@ -1618,7 +1839,6 @@ function statsRange() {
   return { from, to, label };
 }
 
-function bookingMoment(b) { const [h,m] = (b.time||'00:00').split(':').map(Number); const d = new Date(b.date + 'T00:00:00'); d.setHours(h, m); return d; }
 function bookingPrice(b) { return b.price ?? b.szolgaltatasok?.price ?? 0; }
 
 async function loadStats() {
@@ -1627,7 +1847,7 @@ async function loadStats() {
   ['day','week','month'].forEach(m => document.getElementById('stM'+m).classList.toggle('active', ST.mode === m));
   document.getElementById('chartTitle').textContent = ST.mode === 'day' ? 'Termini po satima' : 'Termini po danima';
   const { data, error } = await sb.from('foglalasok')
-    .select('date, time, status, price, profiles(name), szolgaltatasok(name, price)')
+    .select('date, time, status, price, guest_name, profiles(name), szolgaltatasok(name, price)')
     .gte('date', fmtDate(r.from)).lte('date', fmtDate(r.to));
   if (error) { showToast('Greška pri učitavanju statistike.', 'err'); return; }
   ST.data = data || [];
@@ -1689,10 +1909,10 @@ function renderStats() {
 
   // clients
   const cl = {};
-  active.forEach(b => { const n = b.profiles?.name || '—'; cl[n] = (cl[n]||0) + 1; });
+  active.forEach(b => { const n = b.profiles?.name || b.guest_name || '—'; cl[n] = (cl[n]||0) + 1; });
   const cArr = Object.entries(cl).sort((a,b) => b[1]-a[1]).slice(0,5);
   document.getElementById('statsClients').innerHTML = cArr.length ? cArr.map(([n,c],i) => `
-    <div class="client-row"><span class="client-av">${(n[0]||'?').toUpperCase()}</span><span class="client-n">${n}</span><span class="client-c">${c}×</span></div>`).join('')
+    <div class="client-row"><span class="client-av">${(n[0]||'?').toUpperCase()}</span><span class="client-n">${esc(n)}</span><span class="client-c">${c}×</span></div>`).join('')
     : '<div class="stat-empty">Nema podataka.</div>';
 }
 
@@ -1740,6 +1960,83 @@ function drawChart() {
   const todayBtn = el.querySelector('.bar-col.today');
   document.getElementById('chartReadout').textContent = rawMax === 0 ? 'Nema rezervacija u ovom periodu.' : 'Pređite mišem ili dodirnite stubić za detalje.';
   if (todayBtn && rawMax) todayBtn.dispatchEvent(new Event('click'));
+}
+
+// ---------- Nova rezervacija (admin) ----------
+const NB = { svc:null, date:null, time:null, services:[] };
+async function openNewBooking() {
+  const { data } = await sb.from('szolgaltatasok').select('*').eq('active', true).order('id');
+  NB.services = data || []; NB.date = null; NB.time = null; NB.svc = NB.services[0] || null;
+  const today = fmtDate(new Date());
+  openModal('Nova rezervacija', `
+    <div class="modal-sub">Za klijente koji zovu telefonom ili dolaze lično. Rezervacija je odmah potvrđena.</div>
+    <div class="form-group"><label>Ime i prezime</label><input type="text" id="nbName" placeholder="Ime klijenta" maxlength="60"></div>
+    <div class="form-group"><label>Telefon (opciono)</label><input type="tel" id="nbPhone" placeholder="+381 60 123 4567"></div>
+    <div class="form-group"><label>Usluga</label>
+      <select id="nbSvc" onchange="nbSvcChange()">${NB.services.map(sv => `<option value="${sv.id}">${esc(sv.name)} · ${sv.duration} min</option>`).join('')}</select></div>
+    <div class="form-group"><label>Datum</label><input type="date" id="nbDate" min="${today}" onchange="nbLoad()"></div>
+    <div id="nbSlotsWrap"></div>
+    <div class="form-group"><label>Napomena (opciono)</label><textarea id="nbNote" rows="2" maxlength="200"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Odustani</button>
+      <button class="btn btn-accent" id="nbSave" disabled onclick="nbSave()">Sačuvaj</button>
+    </div>`);
+}
+function nbSvcChange() { NB.svc = NB.services.find(x => String(x.id) === document.getElementById('nbSvc').value) || null; if (NB.date) nbLoad(); }
+async function nbLoad() {
+  const d = document.getElementById('nbDate').value; NB.date = d; NB.time = null;
+  document.getElementById('nbSave').disabled = true;
+  const wrap = document.getElementById('nbSlotsWrap');
+  if (!d) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<div class="spinner"></div>';
+  const { slots, reason } = await freeSlotsFor(d, NB.svc?.duration || 30, null);
+  wrap.innerHTML = slots.length ? `<label class="lbl">Slobodni termini</label><div class="slots-grid modal-slots" id="nbSlots">${slotsHTML(slots, null, 'nbPick')}</div>` : `<div class="empty" style="padding:20px">${reason}</div>`;
+}
+function nbPick(t) {
+  NB.time = t;
+  document.querySelectorAll('#nbSlots .slot').forEach(el => el.classList.toggle('sel-slot', el.textContent === t));
+  document.getElementById('nbSave').disabled = false;
+}
+async function nbSave() {
+  const name = document.getElementById('nbName').value.trim();
+  if (!name) { showToast('Unesite ime klijenta.', 'err'); document.getElementById('nbName').focus(); return; }
+  if (!NB.svc || !NB.date || !NB.time) return;
+  document.getElementById('nbSave').disabled = true;
+  const { error } = await sb.from('foglalasok').insert({
+    user_id: null,
+    guest_name: name,
+    guest_phone: document.getElementById('nbPhone').value.trim() || null,
+    szolgaltatas_id: NB.svc.id,
+    date: NB.date,
+    time: NB.time,
+    status: 'confirmed',
+    price: NB.svc.price ?? null,
+    note: document.getElementById('nbNote').value.trim() || null
+  });
+  if (error) {
+    showToast(error.code === '23505' ? 'Termin je već zauzet.' : 'Greška! Pokušaj ponovo.', 'err');
+    if (error.code === '23505') nbLoad(); else document.getElementById('nbSave').disabled = false;
+    return;
+  }
+  closeModal();
+  showToast('Rezervacija je dodata!');
+  loadRezervacije();
+}
+
+// ---------- Podaci o salonu ----------
+async function saveSalon() {
+  const payload = {
+    salon_name: document.getElementById('salonName').value.trim() || null,
+    salon_phone: document.getElementById('salonPhone').value.trim() || null,
+    salon_address: document.getElementById('salonAddress').value.trim() || null,
+    salon_hours: document.getElementById('salonHours').value.trim() || null,
+  };
+  const { data } = await sb.from('beallitasok').select('id').limit(1).single();
+  const res = data ? await sb.from('beallitasok').update(payload).eq('id', data.id) : await sb.from('beallitasok').insert(payload);
+  if (res.error) { showToast('Greška pri čuvanju!', 'err'); return; }
+  settings = { ...(settings || {}), ...payload };
+  applySalon();
+  showToast('Podaci o salonu sačuvani!');
 }
 </script>
 </body>
