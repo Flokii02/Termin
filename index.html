@@ -755,6 +755,35 @@ const SUPA_URL = 'https://tiknsfohvrlbldgkhqlq.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpa25zZm9odnJsYmxkZ2tocWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDMyMDMsImV4cCI6MjA5NjYxOTIwM30.Dr1hviZ1SxdhkOb2vq4UvgrPfAe5z6p1tztwfoU8ZNs';
 
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ---- Több szalon: ?s=slug (alapértelmezett: demo) ----
+const SALON = { id: 1, slug: (new URLSearchParams(location.search).get('s') || 'demo').toLowerCase() };
+const SCOPED = ['szolgaltatasok', 'beallitasok', 'foglalasok', 'blocked_dates', 'work_schedule'];
+(function scopeClient() {
+  const rawFrom = sb.from.bind(sb);
+  const withSalon = r => Array.isArray(r) ? r.map(x => ({ ...x, salon_id: SALON.id })) : { ...r, salon_id: SALON.id };
+  sb.from = function (t) {
+    const b = rawFrom(t);
+    if (t === 'profiles') return Object.assign(Object.create(b), { insert: (r, ...a) => b.insert(withSalon(r), ...a) });
+    if (!SCOPED.includes(t)) return b;
+    return {
+      select: (...a) => b.select(...a).eq('salon_id', SALON.id),
+      insert: (r, ...a) => b.insert(withSalon(r), ...a),
+      update: (...a) => b.update(...a).eq('salon_id', SALON.id),
+      delete: (...a) => b.delete(...a).eq('salon_id', SALON.id),
+      upsert: (r, o, ...a) => b.upsert(withSalon(r), o, ...a)
+    };
+  };
+})();
+let salonReady;
+async function resolveSalon() {
+  const { data } = await supabase.createClient(SUPA_URL, SUPA_KEY).from('salons').select('id, slug, name').eq('slug', SALON.slug).maybeSingle();
+  if (!data) {
+    document.body.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;font-family:system-ui;text-align:center;padding:24px"><div><h1>Salon nije pronađen</h1><p>Proverite link.</p></div></div>';
+    throw new Error('salon_not_found');
+  }
+  SALON.id = data.id;
+}
 let recovering = /type=recovery/.test(location.hash);
 sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') { recovering = true; showNewPw(); } });
 
@@ -779,10 +808,11 @@ const HU_DAYS = ['Pon','Uto','Sre','Čet','Pet','Sub','Ned'];
 // =====================================================
 // INIT
 // =====================================================
-loadSettings();
+salonReady = resolveSalon().then(loadSettings).catch(e => console.error(e));
 // Session ellenőrzés oldal betöltésekor
 window.addEventListener('load', async () => {
   try {
+    await salonReady;
     if (recovering) { showNewPw(); return; }
     const { data } = await sb.auth.getSession();
     if (data.session) {
@@ -1097,7 +1127,7 @@ async function selectDate(dateStr) {
   renderCalendar();
 
   // Foglalt időpontok lekérése
-  const { data } = await sb.rpc('taken_slots', { p_date: dateStr });
+  const { data } = await sb.rpc('taken_slots', { p_date: dateStr, p_salon: SALON.id });
   state.takenSlots = (data || []).map(r => r.slot_time);
   renderSlots();
   document.getElementById('slotSection').style.display = 'block';
@@ -1157,7 +1187,7 @@ async function freeSlotsFor(dateStr, duration, ownTime) {
   const [sch, bl, tk] = await Promise.all([
     sb.from('work_schedule').select('*').eq('date', dateStr),
     sb.from('blocked_dates').select('date').eq('date', dateStr),
-    sb.rpc('taken_slots', { p_date: dateStr })
+    sb.rpc('taken_slots', { p_date: dateStr, p_salon: SALON.id })
   ]);
   const row = (sch.data || [])[0];
   if ((bl.data || []).length) return { slots: [], reason: 'Taj dan je neradni.' };
@@ -1755,7 +1785,7 @@ async function saveWeekSchedule() {
   });
   if (invalid) { showToast('Proveri pauze: kraj mora biti posle početka.', 'err'); return; }
 
-  const { error } = await sb.from('work_schedule').upsert(upserts, { onConflict: 'date' });
+  const { error } = await sb.from('work_schedule').upsert(upserts, { onConflict: 'salon_id,date' });
   if (error) { showToast('Greška pri čuvanju!', 'err'); return; }
   showToast('Raspored sačuvan! ✓');
 }
