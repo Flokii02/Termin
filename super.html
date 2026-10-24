@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Termin – szuperadmin</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#eaedfb;--card:#fff;--ink:#14163a;--mute:#6b6f8f;--accent:#2b44ff;--line:#dfe2f5;--bad:#d33}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1226;--card:#1a1e3a;--ink:#eef0ff;--mute:#9aa0c8;--line:#2b3060}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;padding:20px 16px}
+main{max-width:760px;margin:0 auto}h1{font-size:24px;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:transparent;color:inherit;font:inherit;margin:4px 0 10px}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}.grow{flex:1;min-width:180px}.mute{color:var(--mute);font-size:14px}
+a{color:var(--accent)}.err{color:var(--bad)}.ok{color:#168a3a}
+</style>
+</head>
+<body><main>
+<h1>Termin – szalonok</h1>
+<div id="login" class="card" hidden>
+  <label>E-mail<input id="em" type="email" autocomplete="username"></label>
+  <label>Jelszó<input id="pw" type="password" autocomplete="current-password"></label>
+  <button onclick="doLogin()">Belépés</button> <span id="lerr" class="err"></span>
+</div>
+<div id="panel" hidden>
+  <div class="card">
+    <b>Új szalon</b>
+    <label>Link neve (kisbetű, szám, kötőjel)<input id="nslug" placeholder="slobodan"></label>
+    <label>Szalon neve<input id="nname" placeholder="Frizerski salon Slobodan"></label>
+    <button onclick="createSalon()">Szalon létrehozása</button> <span id="cmsg"></span>
+  </div>
+  <div class="card"><b>Szalonok</b><div id="list"></div></div>
+  <button class="ghost" onclick="logout()">Kilépés</button>
+</div>
+</main>
+<script>
+const SUPA_URL='https://tiknsfohvrlbldgkhqlq.supabase.co';
+const sb=supabase.createClient(SUPA_URL,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpa25zZm9odnJsYmxkZ2tocWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDMyMDMsImV4cCI6MjA5NjYxOTIwM30.Dr1hviZ1SxdhkOb2vq4UvgrPfAe5z6p1tztwfoU8ZNs');
+const BASE=location.href.replace(/super\.html.*$/,'');
+const q=id=>document.getElementById(id);
+const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function init(){
+  const {data}=await sb.auth.getSession();
+  if(!data.session){q('login').hidden=false;return}
+  const r=await sb.rpc('is_super');
+  if(r.data!==true){q('login').hidden=false;q('lerr').textContent='Ehhez a fiókhoz nincs szuperadmin jog.';return}
+  q('login').hidden=true;q('panel').hidden=false;load();
+}
+async function doLogin(){
+  q('lerr').textContent='';
+  const {error}=await sb.auth.signInWithPassword({email:q('em').value.trim(),password:q('pw').value});
+  if(error){q('lerr').textContent='Hibás e-mail vagy jelszó.';return}
+  init();
+}
+async function logout(){await sb.auth.signOut();location.reload()}
+async function load(){
+  const {data,error}=await sb.from('salons').select('*').order('id');
+  if(error){q('list').textContent=error.message;return}
+  q('list').innerHTML=(data||[]).map(s=>{
+    const url=BASE+'?s='+encodeURIComponent(s.slug);
+    return '<div class="row"><div class="grow"><b>'+esc(s.name||s.slug)+'</b><br><a href="'+url+'" target="_blank">'+esc(url)+'</a>'
+    +'<div class="mute">#'+s.id+(s.active?'':' – kikapcsolva')+'</div></div>'
+    +'<input style="max-width:230px;margin:0" id="ae'+s.id+'" type="email" placeholder="admin e-mail">'
+    +'<button class="ghost" onclick="assign('+s.id+')">Admin kijelölése</button>'
+    +'<button class="ghost" onclick="toggle('+s.id+','+(!s.active)+')">'+(s.active?'Kikapcs':'Bekapcs')+'</button>'
+    +'<span id="m'+s.id+'" class="mute"></span></div>';
+  }).join('')||'<div class="mute">Még nincs szalon.</div>';
+}
+async function createSalon(){
+  const slug=q('nslug').value.trim().toLowerCase(),name=q('nname').value.trim(),m=q('cmsg');m.className='';
+  if(!/^[a-z0-9-]{2,40}$/.test(slug)){m.className='err';m.textContent='A link neve 2–40 karakter: a–z, 0–9, kötőjel.';return}
+  const {data,error}=await sb.from('salons').insert({slug,name:name||slug}).select().single();
+  if(error){m.className='err';m.textContent=error.code==='23505'?'Ez a link név már foglalt.':error.message;return}
+  await sb.from('beallitasok').insert({salon_id:data.id,salon_name:name||slug});
+  await sb.from('szolgaltatasok').insert({salon_id:data.id,name:'Muško šišanje',duration:30,price:0,active:true});
+  m.className='ok';m.textContent='Kész.';q('nslug').value='';q('nname').value='';load();
+}
+async function assign(id){
+  const m=q('m'+id),email=q('ae'+id).value.trim();
+  if(!email){m.textContent='Add meg az e-mailt.';return}
+  const {data,error}=await sb.rpc('assign_salon_admin',{p_email:email,p_salon:id});
+  m.textContent=error?error.message:data==='ok'?'Admin beállítva.':data==='not_registered'?'Ez az e-mail még nem regisztrált a szalon oldalán.':'Nincs profil ehhez a felhasználóhoz.';
+}
+async function toggle(id,active){await sb.from('salons').update({active}).eq('id',id);load()}
+init();
+</script>
+</body></html>

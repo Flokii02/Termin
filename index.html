@@ -828,7 +828,12 @@ window.addEventListener('load', async () => {
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   userProfile = data;
-  if (data?.role === 'admin') {
+  // Admin csak a saját szalonjában (a szuperadmin mindenhol)
+  let isSuper = false;
+  try { const r = await sb.rpc('is_super'); isSuper = r.data === true; } catch (e) {}
+  if (data && data.role === 'admin' && !isSuper && data.salon_id !== SALON.id) userProfile = { ...data, role: 'customer' };
+  if (userProfile?.role === 'admin' || (isSuper && data)) {
+    if (isSuper && userProfile) userProfile = { ...userProfile, role: 'admin' };
     document.getElementById('navAdmin').style.display = 'inline-block';
     document.getElementById('navRezervacije').style.display = 'inline-block';
   }
