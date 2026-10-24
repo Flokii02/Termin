@@ -238,6 +238,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
       <div class="field"><label>Lozinka</label><input type="password" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-accent" onclick="doLogin()">Prijava</button>
       <button type="button" class="link-btn" onclick="showReset()">Zaboravili ste lozinku?</button>
+      <button type="button" class="link-btn" onclick="showGuest()">Nazad na zakazivanje bez prijave</button>
     </div>
 
     <!-- REGISTER -->
@@ -277,10 +278,11 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
     <button class="nav-toggle" id="navToggle" onclick="toggleMenu(event)" aria-label="Meni" aria-expanded="false" aria-controls="navMenu"><span></span><span></span><span></span></button>
     <div class="nav-right" id="navMenu">
       <button class="nav-btn active" id="navBook" onclick="showPage('book')">Zakazivanje</button>
+      <button class="nav-btn" id="navLogin" onclick="showAuth()" style="display:none">Prijava</button>
       <button class="nav-btn" id="navProfile" onclick="showPage('profile')">Moj profil</button>
       <button class="nav-btn" id="navRezervacije" onclick="showPage('rezervacije')" style="display:none">Rezervacije</button>
       <button class="nav-btn" id="navAdmin" onclick="showPage('admin')" style="display:none">Admin</button>
-      <button class="nav-btn" onclick="doLogout()" style="color:var(--muted);cursor:pointer">Odjava</button>
+      <button class="nav-btn" id="navLogout" onclick="doLogout()" style="color:var(--muted);cursor:pointer">Odjava</button>
     </div>
   </nav>
 
@@ -341,8 +343,12 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
         <div class="summary-row"><span>Trajanje</span><span id="sumDur">—</span></div>
 
         <div class="summary-row"><span>Termin</span><span id="sumDate">—</span></div>
-        <div class="summary-row"><span>Ime</span><span id="sumName">—</span></div>
-        <div class="summary-row"><span>Telefon</span><span id="sumPhone">—</span></div>
+        <div class="summary-row" id="sumNameRow"><span>Ime</span><span id="sumName">—</span></div>
+        <div class="summary-row" id="sumPhoneRow"><span>Telefon</span><span id="sumPhone">—</span></div>
+      </div>
+      <div id="guestFields" style="display:none">
+        <div class="form-group"><label>Ime i prezime</label><input type="text" id="gName" placeholder="Ime i prezime" autocomplete="name" maxlength="80"></div>
+        <div class="form-group"><label>Telefon</label><input type="tel" id="gPhone" placeholder="+381 60 123 4567" autocomplete="tel" maxlength="30"></div>
       </div>
       <div class="form-group">
         <label>Napomena (opciono)</label>
@@ -819,6 +825,8 @@ window.addEventListener('load', async () => {
       currentUser = data.session.user;
       await loadProfile();
       showApp();
+    } else {
+      showGuest();
     }
   } catch(e) {
     console.error('Session error:', e);
@@ -952,9 +960,9 @@ async function doLogout() {
   await sb.auth.signOut();
   currentUser = null;
   userProfile = null;
-  document.getElementById('appScreen').style.display = 'none';
-  document.getElementById('authScreen').style.display = 'flex';
   document.getElementById('navAdmin').style.display = 'none';
+  resetBooking();
+  showGuest();
 }
 
 // =====================================================
@@ -965,9 +973,26 @@ function showAuth() {
   document.getElementById('appScreen').style.display = 'none';
 }
 
+function setNavMode() {
+  const guest = !currentUser;
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'inline-block' : 'none'; };
+  show('navLogin', guest);
+  show('navProfile', !guest);
+  show('navLogout', !guest);
+  if (guest) { show('navAdmin', false); show('navRezervacije', false); }
+  document.getElementById('guestFields').style.display = guest ? 'block' : 'none';
+  document.getElementById('sumNameRow').style.display = guest ? 'none' : '';
+  document.getElementById('sumPhoneRow').style.display = guest ? 'none' : '';
+}
+function showGuest() {
+  currentUser = null; userProfile = null;
+  showApp();
+  showPage('book');
+}
 function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
+  setNavMode();
   loadServices();
   loadSettings();
 }
@@ -1255,15 +1280,28 @@ async function submitBooking() {
     goStep(2); renderSlots();
     return;
   }
-  const { error } = await sb.from('foglalasok').insert({
-    user_id: currentUser.id,
-    szolgaltatas_id: state.service.id,
-    date: state.date,
-    time: state.slot,
-    status: 'pending',
-    price: state.service.price ?? null,
-    note: document.getElementById('bookNote').value.trim()
-  });
+  let error = null;
+  if (currentUser) {
+    ({ error } = await sb.from('foglalasok').insert({
+      user_id: currentUser.id,
+      szolgaltatas_id: state.service.id,
+      date: state.date,
+      time: state.slot,
+      status: 'pending',
+      price: state.service.price ?? null,
+      note: document.getElementById('bookNote').value.trim()
+    }));
+  } else {
+    const gName = document.getElementById('gName').value.trim();
+    const gPhone = document.getElementById('gPhone').value.trim();
+    if (gName.length < 2 || gPhone.replace(/\D/g, '').length < 6) { showToast('Unesite ime i broj telefona.', 'err'); return; }
+    ({ error } = await sb.rpc('book_as_guest', {
+      p_salon: SALON.id, p_service: state.service.id, p_date: state.date, p_time: state.slot,
+      p_name: gName, p_phone: gPhone, p_note: document.getElementById('bookNote').value.trim()
+    }));
+    if (error && /limit/.test(error.message)) { showToast('Previše aktivnih termina sa ovim brojem. Pozovite salon.', 'err'); return; }
+    if (error && /blocked|past/.test(error.message)) { showToast('Termin nije dostupan. Izaberite drugi.', 'err'); goStep(2); return; }
+  }
 
   if (error) {
     if (error.code === '23505') { showToast('Termin je upravo zauzet. Izaberite drugi.', 'err'); goStep(2); selectDate(state.date); }
@@ -1289,6 +1327,7 @@ function resetBooking() {
   document.querySelectorAll('.service-item').forEach(i => i.classList.remove('selected'));
   document.getElementById('btnSvc').disabled = true;
   document.getElementById('bookNote').value = '';
+  ['gName','gPhone'].forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
 }
 
 // =====================================================
