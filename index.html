@@ -366,9 +366,22 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
         <div class="success-icon">✓</div>
         <div class="success-title">Rezervacija uspešna!</div>
         <div class="success-sub">Rezervacija je uspešno kreirana!<br><span id="successInfo" style="color:var(--accent)"></span></div>
+        <div id="guestLinkBox" style="display:none;margin:18px auto;max-width:420px;text-align:left">
+          <div style="font-size:14px;color:var(--muted);margin-bottom:6px">Sačuvajte ovaj link. Njime možete da izmenite ili otkažete termin bez naloga:</div>
+          <input type="text" id="guestLink" readonly onclick="this.select()" style="font-size:13px">
+          <button class="btn btn-ghost" style="margin-top:8px" onclick="copyGuestLink()">Kopiraj link</button>
+        </div>
         <button class="btn btn-ghost" style="max-width:220px;margin:0 auto" onclick="resetBooking()">Nova rezervacija</button>
       </div>
     </div>
+  </div>
+
+  <!-- GUEST BOOKING MANAGE PAGE -->
+  <div class="page" id="pageGuest">
+    <div class="section-head" style="margin-top:24px"><h2>Vaš termin</h2><p id="gbSub"></p></div>
+    <div class="summary" id="gbCard"></div>
+    <div class="btn-row" id="gbBtns" style="margin-top:14px"></div>
+    <div style="margin-top:18px"><button class="link-btn" onclick="leaveGuestPage()">Novo zakazivanje</button></div>
   </div>
 
   <!-- PROFILE PAGE -->
@@ -827,7 +840,8 @@ window.addEventListener('load', async () => {
       await loadProfile();
       showApp();
     } else {
-      showGuest();
+      const t = new URLSearchParams(location.search).get('t');
+      if (t && GB_RE.test(t)) showGuestPage(t); else showGuest();
     }
   } catch(e) {
     console.error('Session error:', e);
@@ -1019,7 +1033,9 @@ function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 
-  if (page === 'book') {
+  if (page === 'guest') {
+    document.getElementById('pageGuest').classList.add('active');
+  } else if (page === 'book') {
     document.getElementById('pageBook').classList.add('active');
     document.getElementById('navBook').classList.add('active');
   } else if (page === 'profile') {
@@ -1284,7 +1300,7 @@ async function submitBooking() {
     goStep(2); renderSlots();
     return;
   }
-  let error = null;
+  let error = null, guestToken = null;
   if (currentUser) {
     ({ error } = await sb.from('foglalasok').insert({
       user_id: currentUser.id,
@@ -1299,7 +1315,7 @@ async function submitBooking() {
     const gName = document.getElementById('gName').value.trim();
     const gPhone = document.getElementById('gPhone').value.trim();
     if (gName.length < 2 || gPhone.replace(/\D/g, '').length < 6) { showToast('Unesite ime i broj telefona.', 'err'); return; }
-    ({ error } = await sb.rpc('book_as_guest', {
+    ({ data: guestToken, error } = await sb.rpc('book_as_guest', {
       p_salon: SALON.id, p_service: state.service.id, p_date: state.date, p_time: state.slot,
       p_name: gName, p_phone: gPhone, p_note: document.getElementById('bookNote').value.trim()
     }));
@@ -1316,6 +1332,12 @@ async function submitBooking() {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('pSuccess').classList.add('active');
   document.getElementById('stepsBar').style.display = 'none';
+  const box = document.getElementById('guestLinkBox');
+  if (guestToken && GB_RE.test(guestToken)) {
+    document.getElementById('guestLink').value = guestLinkFor(guestToken);
+    box.style.display = 'block';
+    try { localStorage.setItem('termin_t_' + SALON.slug, guestToken); } catch (e) {}
+  } else box.style.display = 'none';
   document.getElementById('successInfo').textContent = `${state.date} ${state.slot} – ${state.service.name}` + (salonName() ? ` · ${salonName()}` : '');
 }
 
@@ -1456,6 +1478,52 @@ function rpcError(error) {
   if (m.includes('not_found')) return 'Rezervacija nije pronađena.';
   return 'Greška! Pokušaj ponovo.';
 }
+// ---------- Vendég foglalás kezelése (link) ----------
+const GB = { token: null, data: null };
+const GB_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function guestLinkFor(token) { return `${location.origin}${location.pathname}?s=${encodeURIComponent(SALON.slug)}&t=${token}`; }
+function copyGuestLink() {
+  const el = document.getElementById('guestLink'); el.select();
+  try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); }
+  showToast('Link je kopiran.');
+}
+async function loadGuestBooking() {
+  const { data, error } = await sb.rpc('guest_get_booking', { p_token: GB.token });
+  const row = Array.isArray(data) ? data[0] : data;
+  const card = document.getElementById('gbCard'), btns = document.getElementById('gbBtns');
+  if (error || !row) { card.innerHTML = '<div class="empty">Rezervacija nije pronađena.</div>'; btns.innerHTML = ''; return; }
+  GB.data = row;
+  const st = { pending: 'Čeka potvrdu', confirmed: 'Potvrđeno', cancelled: 'Otkazano' }[row.status] || row.status;
+  card.innerHTML = `<div class="summary-title">Detalji rezervacije</div>
+    <div class="summary-row"><span>Usluga</span><span>${esc(row.service || '—')}</span></div>
+    <div class="summary-row"><span>Termin</span><span>${esc(row.date)} ${esc(row.time)}</span></div>
+    <div class="summary-row"><span>Status</span><span>${esc(st)}</span></div>`;
+  const future = new Date(row.date + 'T' + row.time + ':00') > new Date();
+  btns.innerHTML = row.status !== 'cancelled' && future
+    ? `<button class="btn btn-ghost" onclick="openGuestReschedule()">Izmeni termin</button><button class="btn btn-ghost" style="color:var(--red)" onclick="guestCancel()">Otkaži</button>` : '';
+}
+function openGuestReschedule() {
+  const r = GB.data; if (!r) return;
+  myBookings['guest'] = { date: r.date, time: r.time, szolgaltatasok: { duration: r.duration || 30 } };
+  openReschedule('guest');
+}
+async function guestCancel() {
+  if (!confirm('Sigurno želite da otkažete ovu rezervaciju?')) return;
+  const { error } = await sb.rpc('guest_cancel_booking', { p_token: GB.token });
+  if (error) { showToast(rpcError(error), 'err'); loadGuestBooking(); return; }
+  showToast('Rezervacija je otkazana.');
+  loadGuestBooking();
+}
+function showGuestPage(token) {
+  GB.token = token; currentUser = null; userProfile = null;
+  showApp(); showPage('guest'); loadGuestBooking();
+}
+function leaveGuestPage() {
+  GB.token = null;
+  try { history.replaceState(null, '', `${location.pathname}?s=${encodeURIComponent(SALON.slug)}`); } catch (e) {}
+  showGuest();
+}
+
 async function cancelBooking(id) {
   if (!confirm('Sigurno želiš da otkažeš ovu rezervaciju?')) return;
   const { error } = await sb.rpc('cancel_my_booking', { p_id: id });
@@ -1484,6 +1552,7 @@ function slotsHTML(slots, selected, fn) {
 const RS = { id:null, date:null, time:null, own:null, dur:30 };
 function openReschedule(id) {
   const b = myBookings[id]; if (!b) return;
+  RS.token = id === 'guest' ? GB.token : null;
   RS.id = id; RS.own = { date: b.date, time: b.time }; RS.dur = b.szolgaltatasok?.duration || 30; RS.date = null; RS.time = null;
   const today = fmtDate(new Date());
   openModal('Izmena termina', `
@@ -1512,11 +1581,13 @@ function rsPick(t) {
 }
 async function rsSave() {
   if (!RS.date || !RS.time) return;
-  const { error } = await sb.rpc('reschedule_my_booking', { p_id: RS.id, p_date: RS.date, p_time: RS.time });
+  const { error } = RS.token
+    ? await sb.rpc('guest_reschedule_booking', { p_token: RS.token, p_date: RS.date, p_time: RS.time })
+    : await sb.rpc('reschedule_my_booking', { p_id: RS.id, p_date: RS.date, p_time: RS.time });
   if (error) { showToast(rpcError(error), 'err'); if (error.message.includes('slot_taken')) rsLoad(); return; }
   closeModal();
   showToast('Termin je izmenjen. Čeka potvrdu.');
-  loadMyBookings();
+  if (RS.token) loadGuestBooking(); else loadMyBookings();
 }
 
 async function loadRezervacije() {
