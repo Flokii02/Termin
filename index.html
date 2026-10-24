@@ -238,7 +238,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
       <div class="field"><label>Lozinka</label><input type="password" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-accent" onclick="doLogin()">Prijava</button>
       <button type="button" class="link-btn" onclick="showReset()">Zaboravili ste lozinku?</button>
-      <button type="button" class="link-btn" onclick="showGuest()">Nazad na zakazivanje bez prijave</button>
+      <button type="button" class="link-btn" id="guestBackBtn" onclick="showGuest()">Nazad na zakazivanje bez prijave</button>
     </div>
 
     <!-- REGISTER -->
@@ -489,6 +489,7 @@ nav::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height
             <div class="form-group"><label>Kraj rada</label><input type="time" id="endTime" value="18:00"></div>
             <div class="form-group"><label>Interval (min)</label><input type="number" id="slotMin" value="30" min="15" max="120" step="15"></div>
             <div class="form-group"><label>Rok za otkazivanje (sati)</label><input type="number" id="cancelHours" value="2" min="0" max="72"></div>
+            <div class="form-group" style="grid-column:1/-1"><label style="display:flex;gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="allowGuest" checked style="width:auto;margin:0"> Dozvoli zakazivanje bez registracije (ime i telefon)</label><div style="font-size:13px;color:var(--muted);margin-top:4px">Ako je isključeno, klijenti moraju da naprave nalog pre zakazivanja.</div></div>
           </div>
           <button class="btn btn-accent" style="max-width:200px" onclick="saveSettings()">Sačuvaj</button>
         </div>
@@ -984,8 +985,10 @@ function setNavMode() {
   document.getElementById('sumNameRow').style.display = guest ? 'none' : '';
   document.getElementById('sumPhoneRow').style.display = guest ? 'none' : '';
 }
+function guestAllowed() { return !settings || settings.allow_guest !== false; }
 function showGuest() {
   currentUser = null; userProfile = null;
+  if (!guestAllowed()) { showAuth(); return; }
   showApp();
   showPage('book');
 }
@@ -1076,6 +1079,7 @@ async function loadSettings() {
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function salonName() { return (settings?.salon_name || '').trim(); }
 function applySalon() {
+  const gb = document.getElementById('guestBackBtn'); if (gb) gb.style.display = guestAllowed() ? '' : 'none';
   const name = salonName() || 'Termin';
   document.title = salonName() ? `${salonName()} – zakazivanje` : 'Zakazivanje termina';
   ['navSalon','authSalon'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = name; });
@@ -1844,6 +1848,7 @@ async function loadSettingsAdmin() {
   document.getElementById('endTime').value = data.end_time || '18:00';
   document.getElementById('slotMin').value = data.slot_minutes || 30;
   document.getElementById('cancelHours').value = data.cancel_hours ?? 2;
+  document.getElementById('allowGuest').checked = data.allow_guest !== false;
   document.getElementById('salonName').value = data.salon_name || '';
   document.getElementById('salonPhone').value = data.salon_phone || '';
   document.getElementById('salonAddress').value = data.salon_address || '';
@@ -1866,6 +1871,7 @@ async function saveSettings() {
     end_time: document.getElementById('endTime').value,
     slot_minutes: parseInt(document.getElementById('slotMin').value) || 30,
     cancel_hours: Math.max(0, parseInt(document.getElementById('cancelHours').value) || 0),
+    allow_guest: document.getElementById('allowGuest').checked,
   };
   const { data } = await sb.from('beallitasok').select('id').limit(1).single();
   const res = data ? await sb.from('beallitasok').update(payload).eq('id', data.id) : await sb.from('beallitasok').insert(payload);
